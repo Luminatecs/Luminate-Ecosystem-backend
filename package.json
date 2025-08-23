@@ -1,0 +1,65 @@
+{
+  "name": "luminate-ecosystem-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Luminate Ecosystem",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "nodemon src/server.ts",
+    "dev": "nodemon src/server.ts",
+    "dev:ts": "ts-node src/server.ts",
+    "clean": "rimraf dist",
+    "prebuild": "npm run clean",
+    "migrate": "ts-node src/scripts/migrate.ts",
+    "migrate:prod": "node dist/scripts/migrate.js",
+    "db:setup": "npm run migrate",
+    "db:admin": "ts-node src/scripts/db-admin.ts",
+    "db:console": "ts-node src/scripts/db-console.ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "redis:start": "docker-compose -f docker-compose.redis.yml up -d",
+    "redis:stop": "docker-compose -f docker-compose.redis.yml down",
+    "redis:logs": "docker-compose -f docker-compose.redis.yml logs -f redis",
+    "redis:cli": "docker exec -it luminate-redis redis-cli",
+    "redis:test": "ts-node test-redis.ts",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "postinstall": "npm run build"
+  },
+  "keywords": [
+    "express",
+    "typescript",
+    "api",
+    "backend",
+    "luminate",
+    "ecosystem"
+  ],
+  "author": "Luminate Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/pg": "^8.15.5",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.1",
+    "pg": "^8.16.3",
+    "redis": "^5.8.2",
+    "rimraf": "^6.0.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/morgan": "^1.9.10",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}
