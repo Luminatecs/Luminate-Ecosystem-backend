@@ -31,7 +31,7 @@ export class UserService {
   /**
    * Create a new user
    */
-  async createUser(userData: CreateUserInput): Promise<Omit<User, 'password_hash'>> {
+  async createUser(userData: CreateUserInput): Promise<Omit<User, 'passwordHash'>> {
     // Check if user already exists by email
     const existingUserByEmail = await this.userRepository.findByEmail(userData.email);
     if (existingUserByEmail) {
@@ -45,17 +45,17 @@ export class UserService {
     }
 
     // Hash the password
-    const hashedPassword = await bcrypt.hash(userData.password_hash, 12);
+    const hashedPassword = await bcrypt.hash(userData.passwordHash, 12);
     
     const userToCreate = {
       ...userData,
-      password_hash: hashedPassword
+      passwordHash: hashedPassword
     };
 
     const newUser = await this.userRepository.create(userToCreate);
     
     // Return user without password
-    const { password_hash, ...userWithoutPassword } = newUser;
+    const { passwordHash, ...userWithoutPassword } = newUser;
     return userWithoutPassword;
   }
 
@@ -73,17 +73,17 @@ export class UserService {
       console.log('❌ User not found for username:', username);
       throw new Error('Invalid username or password');
     }
-    console.log('✅ User found - ID:', user.id, 'Active:', user.is_active);
+    console.log('✅ User found - ID:', user.id, 'Active:', user.isActive);
 
     // Check if user is active
-    if (!user.is_active) {
+    if (!user.isActive) {
       console.log('❌ User account is deactivated');
       throw new Error('Account is deactivated');
     }
 
     // Verify password
     console.log('🔑 Verifying password...');
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
     console.log('🔓 Password valid:', isValidPassword);
     
     if (!isValidPassword) {
@@ -97,23 +97,10 @@ export class UserService {
     await this.userRepository.updateLastLogin(user.id);
 
     // Generate tokens
-    const { password_hash, ...userWithoutPassword } = user;
+    const { passwordHash, ...userWithoutPassword } = user;
     
-    // Transform user object to camelCase for frontend compatibility
-    const transformedUser = {
-      id: userWithoutPassword.id,
-      name: userWithoutPassword.name,
-      email: userWithoutPassword.email,
-      role: userWithoutPassword.role,
-      educationLevel: userWithoutPassword.education_level,
-      organizationId: userWithoutPassword.organization_id,
-      isOrgWard: userWithoutPassword.is_org_ward,
-      isActive: userWithoutPassword.is_active,
-      emailVerified: userWithoutPassword.email_verified,
-      lastLoginAt: userWithoutPassword.last_login_at,
-      createdAt: userWithoutPassword.created_at,
-      updatedAt: userWithoutPassword.updated_at
-    };
+    // User object is already in camelCase from repository mapping
+    const transformedUser = userWithoutPassword;
     
     const accessToken = this.generateAccessToken(userWithoutPassword);
     const refreshToken = this.generateRefreshToken(userWithoutPassword);
@@ -135,27 +122,14 @@ export class UserService {
       const decoded = jwt.verify(refreshToken, this.jwtSecret) as any;
       const user = await this.userRepository.findById(decoded.userId);
       
-      if (!user || !user.is_active) {
+      if (!user || !user.isActive) {
         throw new Error('Invalid refresh token');
       }
 
-      const { password_hash, ...userWithoutPassword } = user;
+      const { passwordHash, ...userWithoutPassword } = user;
       
-      // Transform user object to camelCase for frontend compatibility
-      const transformedUser = {
-        id: userWithoutPassword.id,
-        name: userWithoutPassword.name,
-        email: userWithoutPassword.email,
-        role: userWithoutPassword.role,
-        educationLevel: userWithoutPassword.education_level,
-        organizationId: userWithoutPassword.organization_id,
-        isOrgWard: userWithoutPassword.is_org_ward,
-        isActive: userWithoutPassword.is_active,
-        emailVerified: userWithoutPassword.email_verified,
-        lastLoginAt: userWithoutPassword.last_login_at,
-        createdAt: userWithoutPassword.created_at,
-        updatedAt: userWithoutPassword.updated_at
-      };
+      // User object is already in camelCase from repository mapping
+      const transformedUser = userWithoutPassword;
       
       const newAccessToken = this.generateAccessToken(userWithoutPassword);
       const newRefreshToken = this.generateRefreshToken(userWithoutPassword);
@@ -175,25 +149,25 @@ export class UserService {
   /**
    * Get user by ID
    */
-  async getUserById(id: string): Promise<Omit<User, 'password_hash'> | null> {
+  async getUserById(id: string): Promise<Omit<User, 'passwordHash'> | null> {
     const user = await this.userRepository.findById(id);
     if (!user) return null;
 
-    const { password_hash, ...userWithoutPassword } = user;
+    const { passwordHash, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
 
   /**
    * Get all users with pagination and filtering
    */
-  async getUsers(options: QueryOptions): Promise<PaginatedResponse<Omit<User, 'password_hash'>>> {
+  async getUsers(options: QueryOptions): Promise<PaginatedResponse<Omit<User, 'passwordHash'>>> {
     return await this.userRepository.findMany(options);
   }
 
   /**
    * Update user
    */
-  async updateUser(id: string, userData: UpdateUserInput): Promise<Omit<User, 'password_hash'> | null> {
+  async updateUser(id: string, userData: UpdateUserInput): Promise<Omit<User, 'passwordHash'> | null> {
     // If email is being updated, check for duplicates
     if (userData.email) {
       const existingUser = await this.userRepository.findByEmail(userData.email);
@@ -205,7 +179,7 @@ export class UserService {
     const updatedUser = await this.userRepository.update(id, userData);
     if (!updatedUser) return null;
 
-    const { password_hash, ...userWithoutPassword } = updatedUser;
+    const { passwordHash, ...userWithoutPassword } = updatedUser;
     return userWithoutPassword;
   }
 
@@ -226,7 +200,7 @@ export class UserService {
     }
 
     // Verify current password
-    const isValidCurrentPassword = await bcrypt.compare(currentPassword, user.password_hash);
+    const isValidCurrentPassword = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!isValidCurrentPassword) {
       throw new Error('Current password is incorrect');
     }
@@ -235,24 +209,24 @@ export class UserService {
     const hashedNewPassword = await bcrypt.hash(newPassword, 12);
     
     // Update password
-    await this.userRepository.update(id, { password_hash: hashedNewPassword });
+    await this.userRepository.update(id, { passwordHash: hashedNewPassword });
   }
 
   /**
    * Activate/deactivate user
    */
-  async setUserActiveStatus(id: string, isActive: boolean): Promise<Omit<User, 'password_hash'> | null> {
+  async setUserActiveStatus(id: string, isActive: boolean): Promise<Omit<User, 'passwordHash'> | null> {
     const updatedUser = await this.userRepository.setActiveStatus(id, isActive);
     if (!updatedUser) return null;
 
-    const { password_hash, ...userWithoutPassword } = updatedUser;
+    const { passwordHash, ...userWithoutPassword } = updatedUser;
     return userWithoutPassword;
   }
 
   /**
    * Get users by organization
    */
-  async getUsersByOrganization(organizationId: string, options: QueryOptions): Promise<PaginatedResponse<Omit<User, 'password_hash'>>> {
+  async getUsersByOrganization(organizationId: string, options: QueryOptions): Promise<PaginatedResponse<Omit<User, 'passwordHash'>>> {
     return await this.userRepository.findByOrganization(organizationId, options);
   }
 
@@ -267,7 +241,7 @@ export class UserService {
     }
   }
 
-  private generateAccessToken(user: Omit<User, 'password_hash'>): string {
+  private generateAccessToken(user: Omit<User, 'passwordHash'>): string {
     const payload = { 
       userId: user.id, 
       email: user.email, 
@@ -278,7 +252,7 @@ export class UserService {
     } as jwt.SignOptions);
   }
 
-  private generateRefreshToken(user: Omit<User, 'password_hash'>): string {
+  private generateRefreshToken(user: Omit<User, 'passwordHash'>): string {
     const payload = { 
       userId: user.id,
       type: 'refresh'
@@ -367,13 +341,13 @@ export class UserService {
       name: wardData.name,
       username,
       email: wardData.email,
-      password_hash: hashedPassword,
+      passwordHash: hashedPassword,
       role: UserRole.ORG_WARD,
-      education_level: wardData.educationLevel as any,
-      organization_id: wardData.organizationId,
-      is_org_ward: true,
-      is_active: true,
-      email_verified: false
+      educationLevel: wardData.educationLevel as any,
+      organizationId: wardData.organizationId,
+      isOrgWard: true,
+      isActive: true,
+      emailVerified: false
     });
 
     return {

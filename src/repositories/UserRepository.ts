@@ -15,48 +15,113 @@ export class UserRepository {
   private tableName = 'users';
 
   /**
+   * Map camelCase DTO properties to snake_case database columns
+   */
+  private mapToDatabase(data: any): any {
+    const mapped: any = {};
+    
+    // Map known camelCase properties to snake_case
+    if (data.firstName !== undefined) mapped.first_name = data.firstName;
+    if (data.lastName !== undefined) mapped.last_name = data.lastName;
+    if (data.passwordHash !== undefined) mapped.password_hash = data.passwordHash;
+    if (data.educationLevel !== undefined) mapped.education_level = data.educationLevel;
+    if (data.organizationId !== undefined) mapped.organization_id = data.organizationId;
+    if (data.isOrgWard !== undefined) mapped.is_org_ward = data.isOrgWard;
+    if (data.isActive !== undefined) mapped.is_active = data.isActive;
+    if (data.emailVerified !== undefined) mapped.email_verified = data.emailVerified;
+    if (data.emailVerifiedAt !== undefined) mapped.email_verified_at = data.emailVerifiedAt;
+    if (data.lastLoginAt !== undefined) mapped.last_login_at = data.lastLoginAt;
+    if (data.organizationSetupComplete !== undefined) mapped.organization_setup_complete = data.organizationSetupComplete;
+    if (data.createdAt !== undefined) mapped.created_at = data.createdAt;
+    if (data.updatedAt !== undefined) mapped.updated_at = data.updatedAt;
+    
+    // Copy properties that don't need mapping
+    if (data.id !== undefined) mapped.id = data.id;
+    if (data.name !== undefined) mapped.name = data.name;
+    if (data.username !== undefined) mapped.username = data.username;
+    if (data.email !== undefined) mapped.email = data.email;
+    if (data.role !== undefined) mapped.role = data.role;
+    
+    return mapped;
+  }
+
+  /**
+   * Map snake_case database columns to camelCase DTO properties
+   */
+  private mapFromDatabase(row: any): any {
+    if (!row) return null;
+    
+    const mapped: any = {
+      id: row.id,
+      name: row.name,
+      username: row.username,
+      email: row.email,
+      role: row.role
+    };
+    
+    // Map snake_case to camelCase
+    if (row.first_name !== undefined) mapped.firstName = row.first_name;
+    if (row.last_name !== undefined) mapped.lastName = row.last_name;
+    if (row.password_hash !== undefined) mapped.passwordHash = row.password_hash;
+    if (row.education_level !== undefined) mapped.educationLevel = row.education_level;
+    if (row.organization_id !== undefined) mapped.organizationId = row.organization_id;
+    if (row.is_org_ward !== undefined) mapped.isOrgWard = row.is_org_ward;
+    if (row.is_active !== undefined) mapped.isActive = row.is_active;
+    if (row.email_verified !== undefined) mapped.emailVerified = row.email_verified;
+    if (row.email_verified_at !== undefined) mapped.emailVerifiedAt = row.email_verified_at;
+    if (row.last_login_at !== undefined) mapped.lastLoginAt = row.last_login_at;
+    if (row.organization_setup_complete !== undefined) mapped.organizationSetupComplete = row.organization_setup_complete;
+    if (row.created_at !== undefined) mapped.createdAt = row.created_at;
+    if (row.updated_at !== undefined) mapped.updatedAt = row.updated_at;
+    
+    return mapped;
+  }
+
+  /**
    * Create a new user
    */
   async create(userData: CreateUserInput): Promise<User> {
-    const userWithTimestamps = {
+    const dbData = this.mapToDatabase({
       ...userData,
       id: this.generateUUID(),
       role: userData.role,
-      is_active: true,
-      created_at: new Date(),
-      updated_at: new Date()
-    };
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
 
-    return await db.insert<User>(this.tableName, userWithTimestamps);
+    const result = await db.insert<any>(this.tableName, dbData);
+    return this.mapFromDatabase(result);
   }
 
   /**
    * Find user by ID
    */
   async findById(id: string): Promise<User | null> {
-    return await db.findById<User>(this.tableName, id);
+    const result = await db.findById<any>(this.tableName, id);
+    return this.mapFromDatabase(result);
   }
 
   /**
    * Find user by email
    */
   async findByEmail(email: string): Promise<User | null> {
-    const result = await db.query<User>(
+    const result = await db.query<any>(
       'SELECT * FROM users WHERE email = $1',
       [email]
     );
-    return result.rows[0] || null;
+    return this.mapFromDatabase(result.rows[0]);
   }
 
   /**
    * Find user by username
    */
   async findByUsername(username: string): Promise<User | null> {
-    const result = await db.query<User>(
+    const result = await db.query<any>(
       'SELECT * FROM users WHERE username = $1',
       [username]
     );
-    return result.rows[0] || null;
+    return this.mapFromDatabase(result.rows[0]);
   }
 
   /**
@@ -94,7 +159,7 @@ export class UserRepository {
     queryParams.push(limit, offset);
 
     const [dataResult, countResult] = await Promise.all([
-      db.query<Omit<User, 'password_hash'>>(baseQuery, queryParams),
+      db.query<any>(baseQuery, queryParams),
       db.query<{ count: string }>(countQuery, search ? [`%${search}%`] : [])
     ]);
 
@@ -102,7 +167,7 @@ export class UserRepository {
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data: dataResult.rows,
+      data: dataResult.rows.map(row => this.mapFromDatabase(row)),
       pagination: {
         page,
         limit,
@@ -119,12 +184,13 @@ export class UserRepository {
    * Update user by ID
    */
   async update(id: string, userData: UpdateUserInput): Promise<User | null> {
-    const updateData = {
+    const dbData = this.mapToDatabase({
       ...userData,
-      updated_at: new Date()
-    };
+      updatedAt: new Date()
+    });
 
-    return await db.update<User>(this.tableName, id, updateData);
+    const result = await db.update<any>(this.tableName, id, dbData);
+    return this.mapFromDatabase(result);
   }
 
   /**
@@ -145,10 +211,10 @@ export class UserRepository {
    * Update last login time
    */
   async updateLastLogin(id: string): Promise<void> {
-    await db.update(this.tableName, id, { 
-      last_login_at: new Date(),
-      updated_at: new Date()
-    });
+    await db.update(this.tableName, id, this.mapToDatabase({ 
+      lastLoginAt: new Date(),
+      updatedAt: new Date()
+    }));
   }
 
   /**
@@ -174,7 +240,7 @@ export class UserRepository {
     const countQuery = 'SELECT COUNT(*) as count FROM users WHERE organization_id = $1';
 
     const [dataResult, countResult] = await Promise.all([
-      db.query<Omit<User, 'password_hash'>>(baseQuery, [organizationId, limit, offset]),
+      db.query<any>(baseQuery, [organizationId, limit, offset]),
       db.query<{ count: string }>(countQuery, [organizationId])
     ]);
 
@@ -182,7 +248,7 @@ export class UserRepository {
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data: dataResult.rows,
+      data: dataResult.rows.map(row => this.mapFromDatabase(row)),
       pagination: {
         page,
         limit,
@@ -199,7 +265,7 @@ export class UserRepository {
    * Activate or deactivate a user
    */
   async setActiveStatus(id: string, isActive: boolean): Promise<User | null> {
-    return await this.update(id, { is_active: isActive });
+    return await this.update(id, { isActive });
   }
 
   /**

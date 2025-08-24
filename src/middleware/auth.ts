@@ -57,7 +57,7 @@ export class AuthMiddleware {
       
       // Check if user still exists and is active
       const user = await this.userService.getUserById(decoded.userId);
-      if (!user || !user.is_active) {
+      if (!user || !user.isActive) {
         res.status(401).json({
           success: false,
           error: 'Invalid or expired token'
@@ -72,8 +72,8 @@ export class AuthMiddleware {
         role: decoded.role
       };
 
-      if (user.organization_id) {
-        userInfo.organization_id = user.organization_id;
+      if (user.organizationId) {
+        userInfo.organizationId = user.organizationId;
       }
 
       if (user.name) {
@@ -181,7 +181,7 @@ export class AuthMiddleware {
       
       // Check if user still exists and is active
       const user = await this.userService.getUserById(decoded.userId);
-      if (user && user.is_active) {
+      if (user && user.isActive) {
         req.user = {
           userId: decoded.userId,
           email: decoded.email,

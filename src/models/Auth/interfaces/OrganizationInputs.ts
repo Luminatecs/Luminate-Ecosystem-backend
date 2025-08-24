@@ -9,16 +9,16 @@
  */
 export interface CreateOrganizationInput {
   name: string;
-  contact_email: string;
-  contact_phone?: string;
+  contactEmail: string;
+  contactPhone?: string;
   address?: string;
   description?: string;
   website?: string;
-  admin_id?: string;
-  admin_name: string;
-  admin_username: string;
-  admin_email: string;
-  admin_password: string;
+  adminId?: string;
+  adminName: string;
+  adminUsername: string;
+  adminEmail: string;
+  adminPassword: string;
 }
 
 /**
@@ -27,10 +27,11 @@ export interface CreateOrganizationInput {
  */
 export interface UpdateOrganizationInput {
   name?: string;
-  contact_email?: string;
-  contact_phone?: string;
+  contactEmail?: string;
+  contactPhone?: string;
   address?: string;
   description?: string;
   website?: string;
-  is_active?: boolean;
+  isActive?: boolean;
+  adminId?: string;
 }

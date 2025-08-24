@@ -6,13 +6,13 @@ import { BaseEntity } from './BaseEntity';
  */
 export interface Organization extends BaseEntity {
   name: string;
-  contact_email: string;
-  contact_phone?: string;
+  contactEmail: string;
+  contactPhone?: string;
   address?: string;
   description?: string;
   website?: string;
-  admin_id: string; // Foreign key to User table, referencing the primary ORG_ADMIN
-  is_active: boolean;
-  is_soft_deleted?: boolean;
-  soft_deleted_at?: Date;
+  adminId: string; // Foreign key to User table, referencing the primary ORG_ADMIN
+  isActive: boolean;
+  isSoftDeleted?: boolean;
+  softDeletedAt?: Date;
 }

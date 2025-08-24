@@ -9,9 +9,9 @@ export interface RegisterIndividualDto {
   username: string;
   email: string;
   password: string;
-  education_level: EducationLevel;
-  confirm_password: string;
-  terms_accepted: boolean;
+  educationLevel: EducationLevel;
+  confirmPassword: string;
+  termsAccepted: boolean;
 }
 
 /**
@@ -27,12 +27,12 @@ export interface RegisterIndividualResponseDto {
       username: string;
       email: string;
       role: UserRole;
-      education_level: EducationLevel;
-      is_org_ward: boolean;
-      email_verified: boolean;
-      created_at: Date;
+      educationLevel: EducationLevel;
+      isOrgWard: boolean;
+      emailVerified: boolean;
+      createdAt: Date;
     };
-    verification_email_sent: boolean;
+    verificationEmailSent: boolean;
   };
 }
 
@@ -42,22 +42,22 @@ export interface RegisterIndividualResponseDto {
  */
 export interface RegisterOrganizationDto {
   // Organization details
-  organization_name: string;
-  contact_email: string;
-  contact_phone?: string;
+  organizationName: string;
+  contactEmail: string;
+  contactPhone?: string;
   address?: string;
   description?: string;
   website?: string;
   
   // Admin user details
-  admin_name: string;
-  admin_username: string;
-  admin_email: string;
-  admin_password: string;
-  confirm_password: string;
+  adminName: string;
+  adminUsername: string;
+  adminEmail: string;
+  adminPassword: string;
+  confirmPassword: string;
   
   // Legal/compliance
-  terms_accepted: boolean;
+  termsAccepted: boolean;
   privacy_policy_accepted: boolean;
 }
 
@@ -100,9 +100,9 @@ export interface RegisterOrgWardDto {
   username: string;
   email: string;
   password: string;
-  confirm_password: string;
-  education_level: EducationLevel;
-  terms_accepted: boolean;
+  confirmPassword: string;
+  educationLevel: EducationLevel;
+  termsAccepted: boolean;
 }
 
 /**

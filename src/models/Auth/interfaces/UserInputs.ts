@@ -12,13 +12,14 @@ export interface CreateUserInput {
   name: string;
   username: string;
   email: string;
-  password_hash: string;
+  passwordHash: string;
   role?: UserRole;
-  education_level?: EducationLevel;
-  organization_id?: string;
-  is_org_ward?: boolean;
-  is_active?: boolean;
-  email_verified?: boolean;
+  educationLevel?: EducationLevel;
+  organizationId?: string;
+  isOrgWard?: boolean;
+  isActive?: boolean;
+  emailVerified?: boolean;
+  organizationSetupComplete?: boolean;
 }
 
 /**
@@ -29,10 +30,11 @@ export interface UpdateUserInput {
   name?: string;
   username?: string;
   email?: string;
-  password_hash?: string;
+  passwordHash?: string;
   role?: UserRole;
-  education_level?: EducationLevel;
-  is_active?: boolean;
-  organization_id?: string;
-  is_org_ward?: boolean;
+  educationLevel?: EducationLevel;
+  isActive?: boolean;
+  organizationId?: string;
+  isOrgWard?: boolean;
+  organizationSetupComplete?: boolean;
 }

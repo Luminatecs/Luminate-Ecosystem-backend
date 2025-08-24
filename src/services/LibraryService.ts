@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { ISchool } from '../models/Library/interfaces/Ischool';
+import { ISchool } from '../models/Library/interfaces/ISchool';
 import redisManager from '../config/redis';
 
 export class LibraryService {

@@ -96,7 +96,9 @@ class RedisManager {
     }
 
     try {
-      return await this.client.get(key);
+      const result = await this.client.get(key);
+      // Handle different Redis client return types
+      return typeof result === 'string' ? result : null;
     } catch (error) {
       console.error('❌ Redis: Failed to get key:', key, error);
       return null;

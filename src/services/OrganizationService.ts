@@ -102,4 +102,36 @@ export class OrganizationService {
   async organizationExists(name: string): Promise<boolean> {
     return await this.organizationRepository.existsByName(name);
   }
+
+  /**
+   * Create organization for admin user (two-phase setup)
+   */
+  async createOrganizationForAdmin(adminUserId: string, orgData: any): Promise<Organization> {
+    // Check if organization already exists by name
+    const existingOrg = await this.organizationRepository.findByName(orgData.name);
+    if (existingOrg) {
+      throw new Error('Organization with this name already exists');
+    }
+
+    // Check if admin already has an organization
+    const existingAdminOrg = await this.getOrganizationByAdminId(adminUserId);
+    if (existingAdminOrg) {
+      throw new Error('Admin user already has an organization');
+    }
+
+    // Create organization with admin reference
+    const organizationInput: CreateOrganizationInput = {
+      ...orgData,
+      adminId: adminUserId
+    };
+
+    return await this.organizationRepository.create(organizationInput);
+  }
+
+  /**
+   * Get organization by admin user ID
+   */
+  async getOrganizationByAdminId(adminUserId: string): Promise<Organization | null> {
+    return await this.organizationRepository.findByAdminId(adminUserId);
+  }
 }

@@ -168,9 +168,9 @@ router.post('/register/individual', async (req: Request, res: Response): Promise
     const registrationData: RegisterIndividualDto = req.body;
 
     // Validate required fields
-    const { name, username, email, password, confirm_password, education_level, terms_accepted } = registrationData;
+    const { name, username, email, password, confirmPassword, educationLevel, termsAccepted } = registrationData;
 
-    if (!name || !username || !email || !password || !confirm_password || !education_level || !terms_accepted) {
+    if (!name || !username || !email || !password || !confirmPassword || !educationLevel || !termsAccepted) {
       res.status(400).json({
         success: false,
         error: 'All fields are required'
@@ -178,7 +178,7 @@ router.post('/register/individual', async (req: Request, res: Response): Promise
       return;
     }
 
-    if (password !== confirm_password) {
+    if (password !== confirmPassword) {
       res.status(400).json({
         success: false,
         error: 'Passwords do not match'
@@ -186,7 +186,7 @@ router.post('/register/individual', async (req: Request, res: Response): Promise
       return;
     }
 
-    if (!terms_accepted) {
+    if (!termsAccepted) {
       res.status(400).json({
         success: false,
         error: 'You must accept the terms and conditions'
@@ -199,11 +199,11 @@ router.post('/register/individual', async (req: Request, res: Response): Promise
       name,
       username,
       email,
-      password_hash: password, // Will be hashed in the service
-      education_level, // ← ADD THIS MISSING FIELD
+      passwordHash: password, // Will be hashed in the service
+      educationLevel: educationLevel,
       role: UserRole.INDIVIDUAL,
-      is_active: true,
-      email_verified: false
+      isActive: true,
+      emailVerified: false
     });
 
     res.status(201).json({
@@ -215,12 +215,12 @@ router.post('/register/individual', async (req: Request, res: Response): Promise
           username: user.username,
           email: user.email,
           role: user.role,
-          education_level: education_level,
-          is_org_ward: false,
-          email_verified: user.email_verified,
-          created_at: user.created_at
+          educationLevel: educationLevel,
+          isOrgWard: false,
+          emailVerified: user.emailVerified,
+          createdAt: (user as any).createdAt || new Date()
         },
-        verification_email_sent: false
+        verificationEmailSent: false
       },
       message: 'Individual registration successful'
     });
@@ -241,27 +241,25 @@ router.post('/register/organization', async (req: Request, res: Response): Promi
   try {
     const registrationData: RegisterOrganizationDto = req.body;
 
-    // Validate required fields
+    // Extract only admin user fields for new two-phase approach
     const { 
-      organization_name, 
-      contact_email,
-      admin_name, 
-      admin_username,
-      admin_email, 
-      admin_password, 
-      confirm_password, 
-      terms_accepted 
+      adminName, 
+      adminUsername,
+      adminEmail, 
+      adminPassword, 
+      confirmPassword, 
+      termsAccepted 
     } = registrationData;
 
-    if (!organization_name || !contact_email || !admin_name || !admin_username || !admin_email || !admin_password || !confirm_password || !terms_accepted) {
+    if (!adminName || !adminUsername || !adminEmail || !adminPassword || !confirmPassword || !termsAccepted) {
       res.status(400).json({
         success: false,
-        error: 'All fields are required'
+        error: 'All admin fields are required'
       });
       return;
     }
 
-    if (admin_password !== confirm_password) {
+    if (adminPassword !== confirmPassword) {
       res.status(400).json({
         success: false,
         error: 'Admin passwords do not match'
@@ -269,7 +267,7 @@ router.post('/register/organization', async (req: Request, res: Response): Promi
       return;
     }
 
-    if (!terms_accepted) {
+    if (!termsAccepted) {
       res.status(400).json({
         success: false,
         error: 'You must accept the terms and conditions'
@@ -277,36 +275,26 @@ router.post('/register/organization', async (req: Request, res: Response): Promi
       return;
     }
 
-    // Create organization and admin user
-    const organizationData: any = {
-      name: organization_name,
-      contact_email: contact_email,
-      admin_name: admin_name,
-      admin_username: admin_username,
-      admin_email: admin_email,
-      admin_password: admin_password,
+    // Create admin user with ORG_ADMIN role (organization setup incomplete)
+    const adminUserData = {
+      name: adminName,
+      username: adminUsername,
+      email: adminEmail,
+      passwordHash: adminPassword, // Will be hashed by UserService
+      role: UserRole.ORG_ADMIN,
+      organizationSetupComplete: false
     };
 
-    // Only add optional fields if they have values
-    if (registrationData.description) {
-      organizationData.description = registrationData.description;
-    }
-    if (registrationData.website) {
-      organizationData.website = registrationData.website;
-    }
-    if (registrationData.contact_phone) {
-      organizationData.contact_phone = registrationData.contact_phone;
-    }
-    if (registrationData.address) {
-      organizationData.address = registrationData.address;
-    }
-
-    const result = await organizationService.createOrganization(organizationData);
+    const adminUser = await userService.createUser(adminUserData);
 
     res.status(201).json({
       success: true,
-      data: result,
-      message: 'Organization registration successful'
+      data: {
+        user: adminUser,
+        setupRequired: true,
+        message: 'Admin account created successfully. Please complete your organization setup after logging in.'
+      },
+      message: 'Organization admin registration successful'
     });
   } catch (error) {
     res.status(400).json({
@@ -332,12 +320,12 @@ router.post('/register/org-ward', async (req: Request, res: Response): Promise<v
       username,
       email, 
       password, 
-      confirm_password, 
-      education_level,
-      terms_accepted 
+      confirmPassword, 
+      educationLevel,
+      termsAccepted 
     } = registrationData;
 
-    if (!token || !name || !username || !email || !password || !confirm_password || !education_level || !terms_accepted) {
+    if (!token || !name || !username || !email || !password || !confirmPassword || !educationLevel || !termsAccepted) {
       res.status(400).json({
         success: false,
         error: 'All fields are required'
@@ -345,7 +333,7 @@ router.post('/register/org-ward', async (req: Request, res: Response): Promise<v
       return;
     }
 
-    if (password !== confirm_password) {
+    if (password !== confirmPassword) {
       res.status(400).json({
         success: false,
         error: 'Passwords do not match'
@@ -353,7 +341,7 @@ router.post('/register/org-ward', async (req: Request, res: Response): Promise<v
       return;
     }
 
-    if (!terms_accepted) {
+    if (!termsAccepted) {
       res.status(400).json({
         success: false,
         error: 'You must accept the terms and conditions'
