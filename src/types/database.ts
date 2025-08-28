@@ -61,8 +61,15 @@ export interface AuthToken {
   tokenType: string;
 }
 
+export interface OrganizationStatus {
+  id: string;
+  name: string;
+  isComplete: boolean;
+}
+
 export interface LoginResponse extends AuthToken {
   user: any; // User object without password
+  organization?: OrganizationStatus | null;
 }
 
 export interface RefreshTokenPayload {

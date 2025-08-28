@@ -43,7 +43,7 @@ export class AuthMiddleware {
       }
 
       const token = authHeader.split(' ')[1]; // Bearer <token>
-      
+      console.log('authenticator properly extracts beaer token', token)
       if (!token) {
         res.status(401).json({
           success: false,

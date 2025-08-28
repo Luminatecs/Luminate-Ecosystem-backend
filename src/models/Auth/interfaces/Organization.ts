@@ -13,6 +13,7 @@ export interface Organization extends BaseEntity {
   website?: string;
   adminId: string; // Foreign key to User table, referencing the primary ORG_ADMIN
   isActive: boolean;
+  isOrganizationComplete: boolean;
   isSoftDeleted?: boolean;
   softDeletedAt?: Date;
 }

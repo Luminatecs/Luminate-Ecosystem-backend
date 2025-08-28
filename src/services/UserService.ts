@@ -1,11 +1,13 @@
 import bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { UserRepository } from '../repositories/UserRepository';
+import { OrganizationService } from './OrganizationService';
 import { 
   User, 
   CreateUserInput, 
   UpdateUserInput,
-  UserRole 
+  UserRole,
+  Organization
 } from '../models/Auth/interfaces';
 import { 
   QueryOptions, 
@@ -96,11 +98,21 @@ export class UserService {
     // Update last login
     await this.userRepository.updateLastLogin(user.id);
 
+    // Check if org admin and get organization status
+    let organization = null;
+    if (user.role === UserRole.ORG_ADMIN) {
+      const organizationService = new OrganizationService();
+      organization = await organizationService.getOrganizationByAdminId(user.id);
+    }
+
     // Generate tokens
     const { passwordHash, ...userWithoutPassword } = user;
     
     // User object is already in camelCase from repository mapping
-    const transformedUser = userWithoutPassword;
+    const transformedUser = {
+      ...userWithoutPassword,
+      organizationSetupRequired: user.role === UserRole.ORG_ADMIN && !user.organizationSetupComplete
+    };
     
     const accessToken = this.generateAccessToken(userWithoutPassword);
     const refreshToken = this.generateRefreshToken(userWithoutPassword);
@@ -110,7 +122,12 @@ export class UserService {
       refreshToken: refreshToken,
       expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
       tokenType: 'Bearer',
-      user: transformedUser
+      user: transformedUser,
+      organization: organization ? {
+        id: organization.id,
+        name: organization.name,
+        isComplete: organization.isOrganizationComplete
+      } : null
     };
   }
 
@@ -168,6 +185,8 @@ export class UserService {
    * Update user
    */
   async updateUser(id: string, userData: UpdateUserInput): Promise<Omit<User, 'passwordHash'> | null> {
+    console.log('UserService.updateUser - Starting update:', { id, userData });
+
     // If email is being updated, check for duplicates
     if (userData.email) {
       const existingUser = await this.userRepository.findByEmail(userData.email);
@@ -176,10 +195,17 @@ export class UserService {
       }
     }
 
+    console.log('UserService.updateUser - Calling repository update');
     const updatedUser = await this.userRepository.update(id, userData);
-    if (!updatedUser) return null;
+    console.log('UserService.updateUser - Repository update result:', updatedUser);
+
+    if (!updatedUser) {
+      console.log('UserService.updateUser - Update failed, no user returned');
+      return null;
+    }
 
     const { passwordHash, ...userWithoutPassword } = updatedUser;
+    console.log('UserService.updateUser - Returning updated user:', userWithoutPassword);
     return userWithoutPassword;
   }
 

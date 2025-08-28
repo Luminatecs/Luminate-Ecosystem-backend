@@ -92,6 +92,9 @@ router.get('/schools', async (req: Request, res: Response) => {
 //   }
 // });
 
+
+
+
 /**
  * @route GET /api/library/schools/search
  * @desc Search schools by name, district, or region
@@ -99,25 +102,25 @@ router.get('/schools', async (req: Request, res: Response) => {
  */
 router.get('/schools/search', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { q } = req.query;
+    const { searchTerm } = req.query;
 
-    if (!q || typeof q !== 'string') {
+    if (!searchTerm || typeof searchTerm !== 'string') {
       res.status(400).json({
         success: false,
-        message: 'Search query parameter "q" is required'
+        message: 'Search query parameter "searchTerm" is required'
       });
       return;
     }
 
-    console.log('🔍 Searching schools with query:', q);
-    const schools = await libraryService.searchSchools(q);
-    
+    console.log('🔍 Searching schools with query:', searchTerm);
+    const schools = await libraryService.searchSchools(searchTerm, 'school_data', ['SCHOOL', 'DISTRICT', 'REGION']);
+
     res.status(200).json({
       success: true,
       message: 'Search completed successfully',
       data: schools,
       count: schools.length,
-      query: q
+      query: searchTerm
     });
   } catch (error: any) {
     console.error('❌ Error searching schools:', error);
