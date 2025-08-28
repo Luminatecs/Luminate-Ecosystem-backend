@@ -8,7 +8,7 @@ import { notFound } from './middleware/notFound';
 import { testConnection, closePool } from './config/database';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
-import organizationRoutes from './routes/organizations';
+import organizationRoutes from './routes/org';
 import libraryRoutes from './routes/library';
 
 // Load environment variables
@@ -39,9 +39,13 @@ app.get('/health', async (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
-// app.use('/api/library', libraryRoutes);
+app.use('/api/library', libraryRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/organizations', organizationRoutes);
+
+app.get('/test', () => {
+  console.log('🔥 Test endpoint hit!');
+});
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -59,7 +63,7 @@ app.get('/', (req, res) => {
 });
 
 
-app.use(notFound);
+// app.use(notFound);
 app.use(errorHandler);
 
 // Initialize server
@@ -72,7 +76,6 @@ const startServer = async () => {
       process.exit(1);
     }
 
-    // Start server
     const server = app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
       console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
@@ -80,7 +83,6 @@ const startServer = async () => {
       console.log(`📊 API Documentation: http://localhost:${PORT}/api-docs`);
     });
 
-    // Graceful shutdown
     const gracefulShutdown = async (signal: string) => {
       console.log(`\n${signal} received. Shutting down gracefully...`);
       
@@ -98,7 +100,6 @@ const startServer = async () => {
       });
     };
 
-    // Listen for shutdown signals
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
@@ -108,7 +109,6 @@ const startServer = async () => {
   }
 };
 
-// Start the server
 startServer();
 
 export default app;

@@ -189,7 +189,18 @@ export class UserRepository {
       updatedAt: new Date()
     });
 
-    const result = await db.update<any>(this.tableName, id, dbData);
+    const result = await db.transaction(async (client) => {
+      const columns = Object.keys(dbData);
+      const values = Object.values(dbData);
+      const setClause = columns.map((key, i) => `${key} = $${i + 2}`).join(', ');
+      
+      const query = `UPDATE ${this.tableName} SET ${setClause} WHERE id = $1 RETURNING *`;
+      const params = [id, ...values];
+      
+      const updateResult = await client.query(query, params);
+      return updateResult.rows[0];
+    });
+
     return this.mapFromDatabase(result);
   }
 

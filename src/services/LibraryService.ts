@@ -34,17 +34,27 @@ export class LibraryService {
     const redisKey = 'school_data:all';
 
     try {
-      const cachedData = await redisManager.get(redisKey);
-      if (cachedData) {
-        console.log('📋 Serving school data from Redis cache');
-        return JSON.parse(cachedData);
+      // Try cache first (but don't fail if Redis is unavailable)
+      try {
+        const cachedData = await redisManager.get(redisKey);
+        if (cachedData) {
+          console.log('📋 Serving school data from Redis cache');
+          return JSON.parse(cachedData);
+        }
+      } catch (redisError) {
+        console.warn('⚠️ Redis cache miss, continuing with database query');
       }
 
       const result = await this.pool.query('SELECT * FROM school_data ORDER BY "SCHOOL" ASC');
       const allSchools: ISchool[] = result.rows;
 
-      await redisManager.setEx(redisKey, 3600, JSON.stringify(allSchools));
-      console.log('💾 Cached school data in Redis');
+      // Try to cache the data (but don't fail if Redis is unavailable)
+      try {
+        await redisManager.setEx(redisKey, 3600, JSON.stringify(allSchools));
+        console.log('💾 Cached school data in Redis');
+      } catch (redisError) {
+        console.warn('⚠️ Failed to cache school data, continuing without cache');
+      }
 
       return allSchools;
     } catch (err) {
@@ -79,9 +89,13 @@ export class LibraryService {
         schoolData.core
       ]);
 
-      // Invalidate the cache when new data is added
-      await redisManager.del('school_data:all');
-      console.log('🗑️ Invalidated school data cache');
+      // Invalidate the cache when new data is added (but don't fail if Redis is unavailable)
+      try {
+        await redisManager.del('school_data:all');
+        console.log('🗑️ Invalidated school data cache');
+      } catch (redisError) {
+        console.warn('⚠️ Failed to invalidate cache, continuing without cache invalidation');
+      }
 
       return result.rows[0];
     } catch (err) {
@@ -97,11 +111,15 @@ export class LibraryService {
     const redisKey = `school_search:${searchTerm.toLowerCase()}`;
 
     try {
-      // Try cache first
-      const cachedData = await redisManager.get(redisKey);
-      if (cachedData) {
-        console.log('🔍 Serving search results from Redis cache');
-        return JSON.parse(cachedData);
+      // Try cache first (but don't fail if Redis is unavailable)
+      try {
+        const cachedData = await redisManager.get(redisKey);
+        if (cachedData) {
+          console.log('🔍 Serving search results from Redis cache');
+          return JSON.parse(cachedData);
+        }
+      } catch (redisError) {
+        console.warn('⚠️ Redis cache miss, continuing with database query');
       }
 
       // Search in database
@@ -114,8 +132,13 @@ export class LibraryService {
       `, [`%${searchTerm}%`]);
       const searchResults: ISchool[] = result.rows;
 
-      // Cache search results for 30 minutes
-      await redisManager.setEx(redisKey, 1800, JSON.stringify(searchResults));
+      // Try to cache search results for 30 minutes (but don't fail if Redis is unavailable)
+      try {
+        await redisManager.setEx(redisKey, 1800, JSON.stringify(searchResults));
+        console.log('💾 Cached search results in Redis');
+      } catch (redisError) {
+        console.warn('⚠️ Failed to cache search results, continuing without cache');
+      }
 
       return searchResults;
     } catch (err) {

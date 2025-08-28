@@ -26,7 +26,13 @@ export class OrganizationService {
       throw new Error('Organization with this name already exists');
     }
 
-    return await this.organizationRepository.create(orgData);
+    // Set isOrganizationComplete to true when creating
+    const orgDataWithComplete = {
+      ...orgData,
+      isOrganizationComplete: true
+    };
+
+    return await this.organizationRepository.create(orgDataWithComplete);
   }
 
   /**

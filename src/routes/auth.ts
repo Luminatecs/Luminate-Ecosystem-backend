@@ -9,6 +9,75 @@ const router = express.Router();
 const userService = new UserService();
 const organizationService = new OrganizationService();
 
+
+// router.post('/setup', authenticate, async (req: Request, res: Response): Promise<void> => {
+//   console.log('🔥 Setup endpoint hit!'); 
+//   try {
+//     const userId = (req as any).user.id;
+//     const userRole = (req as any).user.role;
+
+//     // Verify user is ORG_ADMIN
+//     if (userRole !== UserRole.ORG_ADMIN) {
+//       res.status(403).json({
+//         success: false,
+//         error: 'Only organization administrators can create organization profiles'
+//       });
+//       return;
+//     }
+
+//     // Check if user already has an organization
+//     const existingOrg = await organizationService.getOrganizationByAdminId(userId);
+//     if (existingOrg) {
+//       res.status(409).json({
+//         success: false,
+//         error: 'Organization profile already exists for this admin'
+//       });
+//       return;
+//     }
+
+//     const { name, contactEmail, contactPhone, address, description, website } = req.body;
+
+//     // Validate required fields
+//     if (!name || !contactEmail) {
+//       res.status(400).json({
+//         success: false,
+//         error: 'Organization name and contact email are required'
+//       });
+//       return;
+//     }
+
+//     // Create organization with admin reference
+//     const organizationData = {
+//       name,
+//       contactEmail,
+//       contactPhone,
+//       address,
+//       description,
+//       website,
+//       adminId: userId
+//     };
+
+//     const newOrganization = await organizationService.createOrganizationForAdmin(userId, organizationData);
+
+//     // Mark user's organization setup as complete
+//     await userService.updateUser(userId, { organizationSetupComplete: true });
+
+//     res.status(201).json({
+//       success: true,
+//       data: {
+//         organization: newOrganization,
+//         message: 'Organization profile created successfully'
+//       },
+//       message: 'Organization setup completed'
+//     });
+//   } catch (error) {
+//     res.status(400).json({
+//       success: false,
+//       error: error instanceof Error ? error.message : 'Organization setup failed'
+//     });
+//   }
+// });
+
 /**
  * @route POST /api/auth/login
  * @desc User login
