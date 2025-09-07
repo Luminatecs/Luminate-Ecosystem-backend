@@ -41,7 +41,10 @@ app.get('/health', async (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/library', libraryRoutes);
+<<<<<<< HEAD
 app.use('/api/resources', resourcesRoutes);
+=======
+>>>>>>> 4837bfaa2085caae01c40083a41c757ead7f6a6a
 app.use('/api/users', userRoutes);
 app.use('/api/organizations', organizationRoutes);
 

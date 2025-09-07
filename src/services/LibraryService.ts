@@ -120,6 +120,7 @@ export class LibraryService {
       throw new Error('Invalid table name provided. Table name can only contain letters, numbers, and underscores.');
     }
 
+<<<<<<< HEAD
     // Validate userColumnHints input
     if (!Array.isArray(userColumnHints) || userColumnHints.length === 0) {
       throw new Error('No column hints provided for search. Please provide at least one column hint.');
@@ -145,6 +146,18 @@ export class LibraryService {
       // Validate userHint for safe SQL identifier characters
       if (!/^[a-zA-Z0-9_]+$/.test(userHint)) {
         throw new Error(`Invalid column hint provided: "${userHint}". Hints can only contain letters, numbers, and underscores.`);
+=======
+    try {
+      // Try cache first (but don't fail if Redis is unavailable)
+      try {
+        const cachedData = await redisManager.get(redisKey);
+        if (cachedData) {
+          console.log('🔍 Serving search results from Redis cache');
+          return JSON.parse(cachedData);
+        }
+      } catch (redisError) {
+        console.warn('⚠️ Redis cache miss, continuing with database query');
+>>>>>>> 4837bfaa2085caae01c40083a41c757ead7f6a6a
       }
 
       let hintMatched = false;
@@ -156,11 +169,26 @@ export class LibraryService {
         }
       }
 
+<<<<<<< HEAD
       // If a user provided a hint and it didn't match any actual column, throw an error
       if (!hintMatched) {
         // This is important to prevent silent failures if a user misspells a hint entirely
         throw new Error(`The column hint "${userHint}" did not match any actual column in table "${tableName}".`);
       }
+=======
+      // Try to cache search results for 30 minutes (but don't fail if Redis is unavailable)
+      try {
+        await redisManager.setEx(redisKey, 1800, JSON.stringify(searchResults));
+        console.log('💾 Cached search results in Redis');
+      } catch (redisError) {
+        console.warn('⚠️ Failed to cache search results, continuing without cache');
+      }
+
+      return searchResults;
+    } catch (err) {
+      console.error('❌ Error searching schools:', err);
+      throw new Error('Failed to search schools');
+>>>>>>> 4837bfaa2085caae01c40083a41c757ead7f6a6a
     }
 
     // Ensure after mapping, we still have actual columns to search in
