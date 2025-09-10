@@ -1,5 +1,8 @@
 import { createClient, RedisClientType } from 'redis';
 
+// TEMPORARY FLAG TO DISABLE REDIS COMPLETELY
+const REDIS_DISABLED = true;
+
 class RedisManager {
   private client: RedisClientType | null = null;
   private isConnected = false;
@@ -10,6 +13,11 @@ class RedisManager {
   }
 
   private initializeClient(): void {
+    if (REDIS_DISABLED) {
+      console.log('⚠️ Redis: Disabled by configuration flag');
+      return;
+    }
+    
     try {
       this.client = createClient({
         url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -62,6 +70,11 @@ class RedisManager {
   }
 
   async connect(): Promise<void> {
+    if (REDIS_DISABLED) {
+      console.log('⚠️ Redis: Connection skipped (disabled by configuration)');
+      return;
+    }
+    
     if (!this.client) {
       console.warn('⚠️ Redis: Client not initialized, skipping connection');
       return;
@@ -90,6 +103,10 @@ class RedisManager {
   }
 
   async get(key: string): Promise<string | null> {
+    if (REDIS_DISABLED) {
+      return null;
+    }
+    
     if (!this.client || !this.isConnected) {
       console.warn('⚠️ Redis: Client not connected, skipping cache read');
       return null;
@@ -106,6 +123,10 @@ class RedisManager {
   }
 
   async set(key: string, value: string): Promise<void> {
+    if (REDIS_DISABLED) {
+      return;
+    }
+    
     if (!this.client || !this.isConnected) {
       console.warn('⚠️ Redis: Client not connected, skipping cache write');
       return;
@@ -119,6 +140,10 @@ class RedisManager {
   }
 
   async setEx(key: string, seconds: number, value: string): Promise<void> {
+    if (REDIS_DISABLED) {
+      return;
+    }
+    
     if (!this.client || !this.isConnected) {
       console.warn('⚠️ Redis: Client not connected, skipping cache write');
       return;
@@ -132,6 +157,10 @@ class RedisManager {
   }
 
   async del(key: string): Promise<number> {
+    if (REDIS_DISABLED) {
+      return 0;
+    }
+    
     if (!this.client || !this.isConnected) {
       console.warn('⚠️ Redis: Client not connected, skipping cache deletion');
       return 0;
@@ -164,6 +193,10 @@ class RedisManager {
   }
 
   async testConnection(): Promise<boolean> {
+    if (REDIS_DISABLED) {
+      return false;
+    }
+    
     try {
       if (!this.client || !this.isConnected) {
         return false;

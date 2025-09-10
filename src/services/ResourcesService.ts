@@ -59,18 +59,19 @@ export class ResourcesService {
       } : false
     });
 
-    // Initialize Redis connection (non-blocking)
-    this.initializeRedis();
+    // Initialize Redis connection (non-blocking) - COMMENTED OUT FOR NOW
+    // this.initializeRedis();
   }
 
-  private async initializeRedis(): Promise<void> {
-    try {
-      await redisManager.connect();
-      console.log('✅ ResourcesService: Redis connection initialized');
-    } catch (error) {
-      console.warn('⚠️ ResourcesService: Redis unavailable, continuing without cache:', (error as Error).message);
-    }
-  }
+  // COMMENTED OUT FOR NOW - Redis connection initialization
+  // private async initializeRedis(): Promise<void> {
+  //   try {
+  //     await redisManager.connect();
+  //     console.log('✅ ResourcesService: Redis connection initialized');
+  //   } catch (error) {
+  //     console.warn('⚠️ ResourcesService: Redis unavailable, continuing without cache:', (error as Error).message);
+  //   }
+  // }
 
   /**
    * Get all resources with Redis caching

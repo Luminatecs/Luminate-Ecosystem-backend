@@ -113,7 +113,7 @@ router.get('/schools/search', async (req: Request, res: Response): Promise<void>
     }
 
     console.log('🔍 Searching schools with query:', searchTerm);
-    const schools = await libraryService.searchSchools(searchTerm, 'school_data', ['SCHOOL', 'DISTRICT', 'REGION']);
+    const schools = await libraryService.searchSchools(searchTerm);
 
     res.status(200).json({
       success: true,
