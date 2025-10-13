@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { UserService } from '../services/UserService';
 import { OrganizationService } from '../services/OrganizationService';
+import { passwordResetService } from '../services/PasswordResetService';
 import { authenticate, optionalAuth } from '../middleware/auth';
 import { LoginCredentials, RefreshTokenPayload } from '../types/database';
 import { RegisterIndividualDto, RegisterOrganizationDto, RegisterOrgWardDto, UserRole } from '../models';
@@ -607,6 +608,211 @@ router.post('/assign-wards-credentials', authenticate, async (req: Request, res:
     res.status(400).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to assign credentials'
+    });
+  }
+});
+
+/**
+ * @route POST /api/auth/temp-login
+ * @desc Login with temporary code
+ * @access Public
+ */
+router.post('/temp-login', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { tempCode, password } = req.body;
+
+    console.log('🔐 Temp login attempt:', { tempCode });
+
+    if (!tempCode || !password) {
+      res.status(400).json({
+        success: false,
+        error: 'Temporary code and password are required'
+      });
+      return;
+    }
+
+    const authData = await userService.loginWithTempCode(tempCode, password);
+
+    res.json({
+      success: true,
+      data: authData,
+      message: 'Login successful. Please change your password.'
+    });
+  } catch (error) {
+    console.error('❌ Temp login error:', error);
+    res.status(401).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Temporary login failed'
+    });
+  }
+});
+
+/**
+ * @route POST /api/auth/change-temp-password
+ * @desc Change temporary password to permanent credentials
+ * @access Private
+ */
+router.post('/change-temp-password', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: 'User not authenticated'
+      });
+      return;
+    }
+
+    const { tempCode, newUsername, newPassword } = req.body;
+
+    console.log('🔐 Change temp password request:', { userId: req.user.userId, tempCode });
+
+    if (!tempCode || !newUsername || !newPassword) {
+      res.status(400).json({
+        success: false,
+        error: 'Temporary code, new username, and new password are required'
+      });
+      return;
+    }
+
+    // Validate password strength (optional but recommended)
+    if (newPassword.length < 8) {
+      res.status(400).json({
+        success: false,
+        error: 'Password must be at least 8 characters long'
+      });
+      return;
+    }
+
+    const result = await userService.changeTempPassword(
+      req.user.userId,
+      tempCode,
+      newUsername,
+      newPassword
+    );
+
+    res.json({
+      success: result.success,
+      message: result.message
+    });
+  } catch (error) {
+    console.error('❌ Change temp password error:', error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to change password'
+    });
+  }
+});
+
+/**
+ * @route POST /api/auth/forgot-password
+ * @desc Request password reset
+ * @access Public
+ */
+router.post('/forgot-password', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    console.log('📧 Password reset request for email:', email);
+
+    if (!email) {
+      res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+      return;
+    }
+
+    const result = await passwordResetService.createResetToken(email);
+
+    // Always return success to prevent email enumeration
+    res.json({
+      success: true,
+      message: 'If the email exists, a password reset link will be sent.'
+    });
+  } catch (error) {
+    console.error('❌ Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process password reset request'
+    });
+  }
+});
+
+/**
+ * @route POST /api/auth/reset-password
+ * @desc Reset password with token
+ * @access Public
+ */
+router.post('/reset-password', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token, newPassword } = req.body;
+
+    console.log('🔐 Password reset attempt with token');
+
+    if (!token || !newPassword) {
+      res.status(400).json({
+        success: false,
+        error: 'Token and new password are required'
+      });
+      return;
+    }
+
+    // Validate password strength
+    if (newPassword.length < 8) {
+      res.status(400).json({
+        success: false,
+        error: 'Password must be at least 8 characters long'
+      });
+      return;
+    }
+
+    const result = await passwordResetService.resetPassword(token, newPassword);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: result.message
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.message
+      });
+    }
+  } catch (error) {
+    console.error('❌ Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reset password'
+    });
+  }
+});
+
+/**
+ * @route GET /api/auth/validate-reset-token/:token
+ * @desc Validate password reset token
+ * @access Public
+ */
+router.get('/validate-reset-token/:token', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = req.params;
+
+    console.log('🔍 Validating reset token');
+
+    const validation = await passwordResetService.validateResetToken(token);
+
+    res.json({
+      success: true,
+      data: {
+        isValid: validation.isValid
+      },
+      message: validation.message
+    });
+  } catch (error) {
+    console.error('❌ Validate token error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to validate token'
     });
   }
 });

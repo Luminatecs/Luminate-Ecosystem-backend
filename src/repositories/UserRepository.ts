@@ -1,5 +1,5 @@
 import { QueryResultRow } from 'pg';
-import { db } from '../services/database';
+import { db } from '../uitls/queryutils/database';
 import { 
   User, 
   CreateUserInput, 

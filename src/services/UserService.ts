@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { UserRepository } from '../repositories/UserRepository';
 import { OrganizationService } from './OrganizationService';
+import { temporaryCredentialService } from './TemporaryCredentialService';
 import { 
   User, 
   CreateUserInput, 
@@ -128,6 +129,125 @@ export class UserService {
         name: organization.name,
         isComplete: organization.isOrganizationComplete
       } : null
+    };
+  }
+
+  /**
+   * Check if a username is a temporary code
+   */
+  isTempCode(username: string): boolean {
+    return username.startsWith('lumtempcode-');
+  }
+
+  /**
+   * Login with temporary credentials
+   */
+  async loginWithTempCode(tempCode: string, password: string): Promise<LoginResponse & { requiresPasswordChange: true; tempCode: string }> {
+    console.log('🔐 Temp code login attempt:', tempCode);
+
+    // Validate temp credentials
+    const validation = await temporaryCredentialService.validateTempCredentials(tempCode, password);
+
+    if (!validation.isValid || !validation.userId) {
+      console.log('❌ Temp code validation failed:', validation.error);
+      throw new Error(validation.error || 'Invalid temporary credentials');
+    }
+
+    console.log('✅ Temp code validated for user:', validation.userId);
+
+    // Get user
+    const user = await this.userRepository.findById(validation.userId);
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (!user.isActive) {
+      throw new Error('Account is deactivated');
+    }
+
+    // Check if org admin and get organization status
+    let organization = null;
+    if (user.role === UserRole.ORG_ADMIN) {
+      const organizationService = new OrganizationService();
+      organization = await organizationService.getOrganizationByAdminId(user.id);
+    }
+
+    // Generate tokens
+    const { passwordHash, ...userWithoutPassword } = user;
+    
+    const transformedUser = {
+      ...userWithoutPassword,
+      organizationSetupRequired: user.role === UserRole.ORG_ADMIN && !user.organizationSetupComplete
+    };
+    
+    const accessToken = this.generateAccessToken(userWithoutPassword);
+    const refreshToken = this.generateRefreshToken(userWithoutPassword);
+
+    console.log('✅ Temp code login successful - password change required');
+
+    return {
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
+      tokenType: 'Bearer',
+      user: transformedUser,
+      organization: organization ? {
+        id: organization.id,
+        name: organization.name,
+        isComplete: organization.isOrganizationComplete
+      } : null,
+      requiresPasswordChange: true,
+      tempCode: tempCode
+    };
+  }
+
+  /**
+   * Change temporary password to permanent credentials
+   */
+  async changeTempPassword(
+    userId: string, 
+    tempCode: string, 
+    newUsername: string, 
+    newPassword: string
+  ): Promise<{ success: boolean; message: string }> {
+    console.log('🔐 Changing temp password for user:', userId);
+
+    // Validate that temp code exists and belongs to user
+    const validation = await temporaryCredentialService.validateTempCredentials(tempCode, '');
+    console.log('🔍 Temp code validation result:', validation);
+    
+    if (!validation.isValid) {
+      throw new Error('Invalid or expired temporary code');
+    }
+
+    if (validation.userId !== userId) {
+      throw new Error('Temporary code does not belong to this user');
+    }
+
+    // Check if new username is available
+    const existingUser = await this.userRepository.findByUsername(newUsername);
+    if (existingUser && existingUser.id !== userId) {
+      throw new Error('Username already taken');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update user with new credentials
+    await this.userRepository.update(userId, {
+      username: newUsername,
+      passwordHash: hashedPassword
+    });
+
+    // Invalidate the temporary code
+    await temporaryCredentialService.invalidateTempCredentials(tempCode);
+
+    console.log('✅ Temp password changed successfully');
+
+    return {
+      success: true,
+      message: 'Password changed successfully. Please login with your new credentials.'
     };
   }
 

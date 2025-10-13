@@ -120,14 +120,14 @@ export class AuthMiddleware {
    * Middleware to check if user is admin or super admin
    */
   requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
-    this.authorize(UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)(req, res, next);
+    this.authorize(UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN, UserRole.ACCESS_ADMIN)(req, res, next);
   };
 
   /**
-   * Middleware to check if user is super admin
+   * Middleware to check if user is super admin or access admin
    */
   requireSuperAdmin = (req: Request, res: Response, next: NextFunction): void => {
-    this.authorize(UserRole.SUPER_ADMIN)(req, res, next);
+    this.authorize(UserRole.SUPER_ADMIN, UserRole.ACCESS_ADMIN)(req, res, next);
   };
 
   /**
@@ -145,7 +145,7 @@ export class AuthMiddleware {
 
       const resourceUserId = req.params[userIdField] || req.body[userIdField];
       const isOwner = req.user.userId === resourceUserId;
-      const isAdmin = [UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN].includes(req.user.role);
+      const isAdmin = [UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN, UserRole.ACCESS_ADMIN].includes(req.user.role);
 
       if (!isOwner && !isAdmin) {
         res.status(403).json({

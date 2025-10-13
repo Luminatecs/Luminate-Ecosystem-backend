@@ -11,6 +11,7 @@ import userRoutes from './routes/users';
 import organizationRoutes from './routes/org';
 import libraryRoutes from './routes/library';
 import resourcesRoutes from './routes/resources';
+import enrollmentRoutes from './routes/enrollment';
 
 // Load environment variables
 dotenv.config();
@@ -44,6 +45,7 @@ app.use('/api/library', libraryRoutes);
 app.use('/api/resources', resourcesRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/organizations', organizationRoutes);
+app.use('/api/enrollment', enrollmentRoutes);
 
 app.get('/test', () => {
   console.log('🔥 Test endpoint hit!');
@@ -59,7 +61,8 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       library: '/api/library',
       users: '/api/users',
-      organizations: '/api/organizations'
+      organizations: '/api/organizations',
+      enrollment: '/api/enrollment'
     }
   });
 });

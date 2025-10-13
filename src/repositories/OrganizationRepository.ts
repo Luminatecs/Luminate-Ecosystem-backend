@@ -1,4 +1,4 @@
-import { db } from '../services/database';
+import { db } from '../uitls/queryutils/database';
 import { 
   Organization, 
   CreateOrganizationInput, 

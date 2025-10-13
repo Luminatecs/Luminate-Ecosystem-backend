@@ -1,5 +1,5 @@
 import { Pool, PoolClient, QueryResult, QueryConfig, QueryResultRow } from 'pg';
-import { pool } from '../config/database';
+import { pool } from '../../config/database';
 
 export interface DatabaseService {
   query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<QueryResult<T>>;
