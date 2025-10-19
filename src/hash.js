@@ -11,4 +11,4 @@ function hashAndLogPassword(password) {
   });
 }
 
-hashAndLogPassword('Ardiy4190!');
+hashAndLogPassword('');
