@@ -1,0 +1,3 @@
+ssh luminateserver
+psql -h localhost -U LuminateSuperAdmin -d luminateecosystem
+UPDATE users SET password = '$2b$12$lsmxCrvX8LflqlWoanN7ouCFvH.AFlDm' WHERE username = 'superadmin';
