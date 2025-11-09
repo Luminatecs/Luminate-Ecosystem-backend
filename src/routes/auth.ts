@@ -461,35 +461,60 @@ router.post('/create-ward', authenticate, async (req: Request, res: Response): P
   try {
     const admin = req.user;
     
-    if (!admin || admin.role !== UserRole.ORG_ADMIN) {
+    if (!admin || (admin.role !== UserRole.ORG_ADMIN && admin.role !== UserRole.SUPER_ADMIN)) {
       res.status(403).json({
         success: false,
-        error: 'Only organization administrators can create wards'
+        error: 'Only organization administrators and super admins can create wards'
       });
       return;
     }
 
-    const { name, email, educationLevel } = req.body;
+    const { guardianName, guardianEmail, wardName, educationLevel, organizationId } = req.body;
 
-    if (!name || !email || !educationLevel) {
+    if (!guardianName || !guardianEmail || !wardName || !educationLevel) {
       res.status(400).json({
         success: false,
-        error: 'Name, email, and education level are required'
+        error: 'Guardian name, guardian email, ward name, and education level are required'
       });
       return;
+    }
+
+    // Determine which organization to use
+    // SUPER_ADMIN can specify organizationId, ORG_ADMIN uses their own organization
+    let targetOrgId: string;
+    if (admin.role === UserRole.SUPER_ADMIN) {
+      if (!organizationId) {
+        res.status(400).json({
+          success: false,
+          error: 'Super admins must specify an organizationId'
+        });
+        return;
+      }
+      targetOrgId = organizationId;
+    } else {
+      // ORG_ADMIN uses their own organization
+      if (!admin.organization_id) {
+        res.status(400).json({
+          success: false,
+          error: 'Organization administrator must be associated with an organization'
+        });
+        return;
+      }
+      targetOrgId = admin.organization_id;
     }
 
     const ward = await userService.createWard({
-      name,
-      email,
+      guardianName,
+      guardianEmail,
+      wardName,
       educationLevel,
-      organizationId: admin.organization_id!
+      organizationId: targetOrgId
     });
 
     res.json({
       success: true,
       data: ward,
-      message: 'Ward created successfully'
+      message: 'Ward created successfully. Temporary credentials have been generated.'
     });
 
   } catch (error) {
@@ -509,15 +534,15 @@ router.post('/create-wards-bulk', authenticate, async (req: Request, res: Respon
   try {
     const admin = req.user;
     
-    if (!admin || admin.role !== UserRole.ORG_ADMIN) {
+    if (!admin || (admin.role !== UserRole.ORG_ADMIN && admin.role !== UserRole.SUPER_ADMIN)) {
       res.status(403).json({
         success: false,
-        error: 'Only organization administrators can create wards'
+        error: 'Only organization administrators and super admins can create wards'
       });
       return;
     }
 
-    const { wards } = req.body;
+    const { wards, organizationId } = req.body;
 
     if (!wards || !Array.isArray(wards) || wards.length === 0) {
       res.status(400).json({
@@ -527,9 +552,33 @@ router.post('/create-wards-bulk', authenticate, async (req: Request, res: Respon
       return;
     }
 
+    // Determine which organization to use
+    // SUPER_ADMIN can specify organizationId, ORG_ADMIN uses their own organization
+    let targetOrgId: string;
+    if (admin.role === UserRole.SUPER_ADMIN) {
+      if (!organizationId) {
+        res.status(400).json({
+          success: false,
+          error: 'Super admins must specify an organizationId'
+        });
+        return;
+      }
+      targetOrgId = organizationId;
+    } else {
+      // ORG_ADMIN uses their own organization
+      if (!admin.organization_id) {
+        res.status(400).json({
+          success: false,
+          error: 'Organization administrator must be associated with an organization'
+        });
+        return;
+      }
+      targetOrgId = admin.organization_id;
+    }
+
     const createdWards = await userService.createWardsBulk({
       wards,
-      organizationId: admin.organization_id!
+      organizationId: targetOrgId
     });
 
     res.json({
@@ -555,15 +604,39 @@ router.get('/organization-wards', authenticate, async (req: Request, res: Respon
   try {
     const admin = req.user;
     
-    if (!admin || admin.role !== UserRole.ORG_ADMIN) {
+    if (!admin || (admin.role !== UserRole.ORG_ADMIN && admin.role !== UserRole.SUPER_ADMIN)) {
       res.status(403).json({
         success: false,
-        error: 'Only organization administrators can view wards'
+        error: 'Only organization administrators and super admins can view wards'
       });
       return;
     }
 
-    const wards = await userService.getOrganizationWards(admin.organization_id!);
+    // Determine which organization to query
+    // SUPER_ADMIN can specify organizationId via query param, ORG_ADMIN uses their own organization
+    let targetOrgId: string | undefined;
+    if (admin.role === UserRole.SUPER_ADMIN) {
+      targetOrgId = req.query.organizationId as string;
+      if (!targetOrgId) {
+        res.status(400).json({
+          success: false,
+          error: 'Super admins must specify organizationId as a query parameter'
+        });
+        return;
+      }
+    } else {
+      // ORG_ADMIN uses their own organization
+      if (!admin.organization_id) {
+        res.status(400).json({
+          success: false,
+          error: 'Organization administrator must be associated with an organization'
+        });
+        return;
+      }
+      targetOrgId = admin.organization_id;
+    }
+
+    const wards = await userService.getOrganizationWards(targetOrgId);
 
     res.json({
       success: true,
@@ -588,15 +661,40 @@ router.post('/assign-wards-credentials', authenticate, async (req: Request, res:
   try {
     const admin = req.user;
     
-    if (!admin || admin.role !== UserRole.ORG_ADMIN) {
+    if (!admin || (admin.role !== UserRole.ORG_ADMIN && admin.role !== UserRole.SUPER_ADMIN)) {
       res.status(403).json({
         success: false,
-        error: 'Only organization administrators can assign credentials'
+        error: 'Only organization administrators and super admins can assign credentials'
       });
       return;
     }
 
-    const result = await userService.assignWardsCredentials(admin.organization_id!);
+    // Determine which organization to use
+    // SUPER_ADMIN can specify organizationId in body, ORG_ADMIN uses their own organization
+    let targetOrgId: string;
+    if (admin.role === UserRole.SUPER_ADMIN) {
+      const { organizationId } = req.body;
+      if (!organizationId) {
+        res.status(400).json({
+          success: false,
+          error: 'Super admins must specify an organizationId'
+        });
+        return;
+      }
+      targetOrgId = organizationId;
+    } else {
+      // ORG_ADMIN uses their own organization
+      if (!admin.organization_id) {
+        res.status(400).json({
+          success: false,
+          error: 'Organization administrator must be associated with an organization'
+        });
+        return;
+      }
+      targetOrgId = admin.organization_id;
+    }
+
+    const result = await userService.assignWardsCredentials(targetOrgId);
 
     res.json({
       success: true,

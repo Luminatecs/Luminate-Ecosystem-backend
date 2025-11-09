@@ -1,47 +1,6 @@
 import { Pool } from 'pg';
 import redisManager from '../config/redis';
-
-export interface IResource {
-  id: string;
-  title: string;
-  description: string;
-  full_description: string;
-  category: string;
-  type: string;
-  resource_type: 'students' | 'parents' | 'counselors';
-  rating: number;
-  link?: string;
-  featured: boolean;
-  image?: string;
-  features: string[];
-  duration?: string;
-  difficulty?: 'Beginner' | 'Intermediate' | 'Advanced';
-  tags?: string[];
-  free: boolean;
-  created_at: string;
-  updated_at: string;
-  created_by?: string;
-  is_active: boolean;
-}
-
-export interface CreateResourceInput {
-  title: string;
-  description: string;
-  full_description: string;
-  category: string;
-  type: string;
-  resource_type: 'students' | 'parents' | 'counselors';
-  rating?: number;
-  link?: string;
-  featured?: boolean;
-  image?: string;
-  features: string[];
-  duration?: string;
-  difficulty?: 'Beginner' | 'Intermediate' | 'Advanced';
-  tags?: string[];
-  free?: boolean;
-  created_by?: string;
-}
+import { IResource, CreateResourceInput, UpdateResourceInput, ResourceType } from '../models/Resource';
 
 export class ResourcesService {
   private pool: Pool;
@@ -140,7 +99,7 @@ export class ResourcesService {
   /**
    * Get resources by type with Redis caching
    */
-  async getResourcesByType(resourceType: 'students' | 'parents' | 'counselors'): Promise<IResource[]> {
+  async getResourcesByType(resourceType: ResourceType): Promise<IResource[]> {
     const redisKey = `resources:type:${resourceType}`;
 
     try {
@@ -337,6 +296,144 @@ export class ResourcesService {
     } catch (error) {
       console.error(`❌ Error fetching resource ${id}:`, error);
       throw new Error('Failed to fetch resource');
+    }
+  }
+
+  /**
+   * Update a resource by ID
+   */
+  async updateResource(id: string, resourceData: Partial<CreateResourceInput>): Promise<IResource | null> {
+    try {
+      // First check if resource exists
+      const existing = await this.getResourceById(id);
+      if (!existing) {
+        throw new Error('Resource not found');
+      }
+
+      // Build dynamic update query
+      const updates: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (resourceData.title !== undefined) {
+        updates.push(`title = $${paramIndex++}`);
+        values.push(resourceData.title);
+      }
+      if (resourceData.description !== undefined) {
+        updates.push(`description = $${paramIndex++}`);
+        values.push(resourceData.description);
+      }
+      if (resourceData.full_description !== undefined) {
+        updates.push(`full_description = $${paramIndex++}`);
+        values.push(resourceData.full_description);
+      }
+      if (resourceData.category !== undefined) {
+        updates.push(`category = $${paramIndex++}`);
+        values.push(resourceData.category);
+      }
+      if (resourceData.type !== undefined) {
+        updates.push(`type = $${paramIndex++}`);
+        values.push(resourceData.type);
+      }
+      if (resourceData.resource_type !== undefined) {
+        updates.push(`resource_type = $${paramIndex++}`);
+        values.push(resourceData.resource_type);
+      }
+      if (resourceData.rating !== undefined) {
+        updates.push(`rating = $${paramIndex++}`);
+        values.push(resourceData.rating);
+      }
+      if (resourceData.link !== undefined) {
+        updates.push(`link = $${paramIndex++}`);
+        values.push(resourceData.link);
+      }
+      if (resourceData.featured !== undefined) {
+        updates.push(`featured = $${paramIndex++}`);
+        values.push(resourceData.featured);
+      }
+      if (resourceData.image !== undefined) {
+        updates.push(`image = $${paramIndex++}`);
+        values.push(resourceData.image);
+      }
+      if (resourceData.features !== undefined) {
+        updates.push(`features = $${paramIndex++}`);
+        values.push(JSON.stringify(resourceData.features));
+      }
+      if (resourceData.duration !== undefined) {
+        updates.push(`duration = $${paramIndex++}`);
+        values.push(resourceData.duration);
+      }
+      if (resourceData.difficulty !== undefined) {
+        updates.push(`difficulty = $${paramIndex++}`);
+        values.push(resourceData.difficulty);
+      }
+      if (resourceData.tags !== undefined) {
+        updates.push(`tags = $${paramIndex++}`);
+        values.push(JSON.stringify(resourceData.tags));
+      }
+      if (resourceData.free !== undefined) {
+        updates.push(`free = $${paramIndex++}`);
+        values.push(resourceData.free);
+      }
+
+      // Always update updated_at
+      updates.push(`updated_at = CURRENT_TIMESTAMP`);
+      
+      // Add ID as last parameter
+      values.push(id);
+
+      if (updates.length === 1) { // Only updated_at
+        return existing; // Nothing to update
+      }
+
+      const result = await this.pool.query(`
+        UPDATE resources 
+        SET ${updates.join(', ')}
+        WHERE id = $${paramIndex} AND is_active = true
+        RETURNING 
+          id, title, description, full_description, category, type, resource_type,
+          rating, link, featured, image, features, duration, difficulty, tags, free,
+          created_at, updated_at, created_by, is_active
+      `, values);
+
+      const updatedResource = result.rows[0];
+      console.log(`✅ Updated resource: ${updatedResource.title}`);
+
+      // Clear related caches
+      await this.clearResourceCaches();
+
+      return updatedResource;
+    } catch (error) {
+      console.error(`❌ Error updating resource ${id}:`, error);
+      throw new Error('Failed to update resource');
+    }
+  }
+
+  /**
+   * Delete a resource by ID (soft delete)
+   */
+  async deleteResource(id: string): Promise<boolean> {
+    try {
+      const result = await this.pool.query(`
+        UPDATE resources 
+        SET is_active = false, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1 AND is_active = true
+        RETURNING id
+      `, [id]);
+
+      if (result.rows.length === 0) {
+        throw new Error('Resource not found');
+      }
+
+      console.log(`✅ Deleted resource: ${id}`);
+
+      // Clear related caches
+      await this.clearResourceCaches();
+
+      return true;
+    } catch (error) {
+      console.error(`❌ Error deleting resource ${id}:`, error);
+      throw new Error('Failed to delete resource');
     }
   }
 

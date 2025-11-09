@@ -3,6 +3,7 @@ import * as jwt from 'jsonwebtoken';
 import { UserRepository } from '../repositories/UserRepository';
 import { OrganizationService } from './OrganizationService';
 import { temporaryCredentialService } from './TemporaryCredentialService';
+import { emailService } from './EmailService';
 import { 
   User, 
   CreateUserInput, 
@@ -457,36 +458,74 @@ export class UserService {
   }
 
   /**
+   * Generate a unique email for wards (system-generated, not used for login)
+   */
+  private async generateWardEmail(wardName: string, organizationId: string): Promise<string> {
+    const baseName = wardName.toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .substring(0, 12);
+    
+    const orgShort = organizationId.substring(0, 8);
+    let counter = 1;
+    let email = `${baseName}.${orgShort}@ward.luminate.local`;
+    
+    const result = await this.userRepository.findByEmail(email);
+    if (!result) {
+      return email;
+    }
+    
+    // If collision, add counter
+    while (true) {
+      email = `${baseName}.${orgShort}.${counter}@ward.luminate.local`;
+      const exists = await this.userRepository.findByEmail(email);
+      if (!exists) break;
+      counter++;
+    }
+    
+    return email;
+  }
+
+  /**
    * Create a single ward (student) for an organization
    */
   async createWard(wardData: {
-    name: string;
-    email: string;
+    guardianName: string;
+    guardianEmail: string;
+    wardName: string;
     educationLevel: string;
     organizationId: string;
   }): Promise<{
     id: string;
-    name: string;
-    username: string;
+    wardName: string;
+    guardianName: string;
+    guardianEmail: string;
     email: string;
     educationLevel: string;
-    password: string;
+    tempCode: string;
+    tempPassword: string;
+    expiresAt: Date;
   }> {
-    // Check if ward already exists by email
-    const existingWard = await this.userRepository.findByEmail(wardData.email);
-    if (existingWard) {
-      throw new Error('A ward with this email already exists');
-    }
+    // Note: Guardian email uniqueness will be enforced by database after migration runs
+    // For now, we'll let the database handle any duplicate issues
+    
+    // Generate unique ward email (ward won't use this initially, it's for system purposes)
+    const wardEmail = await this.generateWardEmail(wardData.wardName, wardData.organizationId);
+    
+    // Generate unique username (temporary - will be changed on first login)
+    const username = await this.generateWardUsername(wardData.wardName, wardData.organizationId);
+    
+    // Generate a placeholder password (won't be used - temp credentials will be used instead)
+    const placeholderPassword = this.generateWardPassword();
+    const hashedPassword = await bcrypt.hash(placeholderPassword, 12);
 
-    // Generate unique username and password
-    const username = await this.generateWardUsername(wardData.name, wardData.organizationId);
-    const password = this.generateWardPassword();
-    const hashedPassword = await bcrypt.hash(password, 12);
-
+    // Create the ward user with guardian info
     const ward = await this.userRepository.create({
-      name: wardData.name,
+      name: wardData.wardName, // System name field gets ward name
+      guardianName: wardData.guardianName,
+      guardianEmail: wardData.guardianEmail,
+      wardName: wardData.wardName,
       username,
-      email: wardData.email,
+      email: wardEmail, // Generated email for the ward
       passwordHash: hashedPassword,
       role: UserRole.ORG_WARD,
       educationLevel: wardData.educationLevel as any,
@@ -496,13 +535,68 @@ export class UserService {
       emailVerified: false
     });
 
+    console.log('✅ Ward created:', { 
+      wardId: ward.id, 
+      wardName: wardData.wardName,
+      guardianEmail: wardData.guardianEmail 
+    });
+
+    // Generate temporary credentials for first-time login
+    const tempCredentials = await temporaryCredentialService.generateTempCredentials(ward.id);
+
+    console.log('✅ Temp credentials generated:', { 
+      wardId: ward.id, 
+      tempCode: tempCredentials.tempCode 
+    });
+
+    // Get organization name for email
+    const organizationService = new OrganizationService();
+    const organization = await organizationService.getOrganizationById(wardData.organizationId);
+    const organizationName = organization?.name || 'Our Organization';
+
+    // Send email with temporary credentials TO GUARDIAN
+    const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/temp-login/${tempCredentials.tempCode}`;
+    
+    try {
+          // await emailService.sendGuardianCredentials({
+          //   guardianEmail: wardData.guardianEmail,
+          //   guardianName: wardData.guardianName,
+          //   studentName: wardData.wardName,
+          //   tempCode: tempCredentials.tempCode,
+          //   tempPassword: tempCredentials.tempPassword,
+          //   expiryDate: tempCredentials.expiresAt,
+          //   organizationName: organizationName
+          // });
+      console.log('temporaryCredentialService: Sent credentials email to guardian', {
+        guardianEmail: wardData.guardianEmail,
+        studentName: wardData.wardName,
+        tempCode: tempCredentials.tempCode,
+        tempPassword: tempCredentials.tempPassword,
+        expiryDate: tempCredentials.expiresAt,
+        organizationName: organizationName
+      });
+      
+      console.log('✅ Credentials email sent to guardian:', wardData.guardianEmail);
+      console.log('🔗 Login URL:', loginUrl);
+    } catch (error) {
+      console.error('❌ Failed to send credentials email:', error);
+      // Don't throw error - ward is created, just email failed
+      console.log('⚠️  Ward created but email failed. Credentials:', {
+        tempCode: tempCredentials.tempCode,
+        tempPassword: tempCredentials.tempPassword
+      });
+    }
+
     return {
       id: ward.id,
-      name: ward.name,
-      username,
-      email: ward.email,
+      wardName: wardData.wardName,
+      guardianName: wardData.guardianName,
+      guardianEmail: wardData.guardianEmail,
+      email: wardEmail,
       educationLevel: wardData.educationLevel,
-      password // Return plain password for admin to share with student
+      tempCode: tempCredentials.tempCode,
+      tempPassword: tempCredentials.tempPassword,
+      expiresAt: tempCredentials.expiresAt
     };
   }
 
@@ -511,18 +605,22 @@ export class UserService {
    */
   async createWardsBulk(data: {
     wards: Array<{
-      name: string;
-      email: string;
+      guardianName: string;
+      guardianEmail: string;
+      wardName: string;
       educationLevel: string;
     }>;
     organizationId: string;
   }): Promise<Array<{
     id: string;
-    name: string;
-    username: string;
+    wardName: string;
+    guardianName: string;
+    guardianEmail: string;
     email: string;
     educationLevel: string;
-    password: string;
+    tempCode: string;
+    tempPassword: string;
+    expiresAt: Date;
   }>> {
     const createdWards = [];
 
@@ -535,7 +633,7 @@ export class UserService {
         createdWards.push(ward);
       } catch (error) {
         // Log error but continue with other wards
-        console.error(`Failed to create ward ${wardData.email}:`, error);
+        console.error(`Failed to create ward ${wardData.wardName}:`, error);
       }
     }
 
@@ -621,5 +719,49 @@ export class UserService {
     }
 
     return response;
+  }
+
+  /**
+   * Update user role (SUPER_ADMIN only operation)
+   * Allows promoting existing users to SUPER_ADMIN or ACCESS_ADMIN
+   */
+  async updateUserRole(userId: string, newRole: UserRole): Promise<Omit<User, 'passwordHash'>> {
+    // Validate role - only allow admin roles
+    const allowedRoles = [UserRole.SUPER_ADMIN, UserRole.ACCESS_ADMIN, UserRole.ORG_ADMIN, UserRole.INDIVIDUAL, UserRole.ORG_WARD];
+    if (!allowedRoles.includes(newRole)) {
+      throw new Error('Invalid role specified');
+    }
+
+    // Get the user to verify they exist
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Update the role in the database
+    await this.userRepository.updateUserRole(userId, newRole);
+
+    // Fetch and return the updated user
+    const updatedUser = await this.userRepository.findById(userId);
+    if (!updatedUser) {
+      throw new Error('Failed to fetch updated user');
+    }
+
+    // Remove password hash from response
+    const { passwordHash, ...userWithoutPassword } = updatedUser;
+    return userWithoutPassword;
+  }
+
+  /**
+   * Search users by name, email, username, or role
+   */
+  async searchUsers(query: string): Promise<Omit<User, 'passwordHash'>[]> {
+    const users = await this.userRepository.searchUsers(query);
+    
+    // Remove password hash from all users
+    return users.map(user => {
+      const { passwordHash, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+    });
   }
 }

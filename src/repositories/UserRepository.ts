@@ -35,6 +35,11 @@ export class UserRepository {
     if (data.createdAt !== undefined) mapped.created_at = data.createdAt;
     if (data.updatedAt !== undefined) mapped.updated_at = data.updatedAt;
     
+    // Map guardian/ward fields
+    if (data.guardianName !== undefined) mapped.guardian_name = data.guardianName;
+    if (data.guardianEmail !== undefined) mapped.guardian_email = data.guardianEmail;
+    if (data.wardName !== undefined) mapped.ward_name = data.wardName;
+    
     // Copy properties that don't need mapping
     if (data.id !== undefined) mapped.id = data.id;
     if (data.name !== undefined) mapped.name = data.name;
@@ -73,6 +78,11 @@ export class UserRepository {
     if (row.organization_setup_complete !== undefined) mapped.organizationSetupComplete = row.organization_setup_complete;
     if (row.created_at !== undefined) mapped.createdAt = row.created_at;
     if (row.updated_at !== undefined) mapped.updatedAt = row.updated_at;
+    
+    // Map guardian/ward fields
+    if (row.guardian_name !== undefined) mapped.guardianName = row.guardian_name;
+    if (row.guardian_email !== undefined) mapped.guardianEmail = row.guardian_email;
+    if (row.ward_name !== undefined) mapped.wardName = row.ward_name;
     
     return mapped;
   }
@@ -137,14 +147,14 @@ export class UserRepository {
     } = options;
 
     const offset = (page - 1) * limit;
-    let baseQuery = 'SELECT id, email, first_name, last_name, role, is_active, last_login_at, organization_id, created_at, updated_at FROM users';
+    let baseQuery = 'SELECT id, email, name, username, role, is_active, last_login_at, organization_id, created_at, updated_at FROM users';
     let countQuery = 'SELECT COUNT(*) as count FROM users';
     const queryParams: any[] = [];
     let paramIndex = 1;
 
     // Add search functionality
     if (search) {
-      const searchCondition = ` WHERE (first_name ILIKE $${paramIndex} OR last_name ILIKE $${paramIndex} OR email ILIKE $${paramIndex})`;
+      const searchCondition = ` WHERE (name ILIKE $${paramIndex} OR username ILIKE $${paramIndex} OR email ILIKE $${paramIndex})`;
       baseQuery += searchCondition;
       countQuery += searchCondition;
       queryParams.push(`%${search}%`);
@@ -241,7 +251,7 @@ export class UserRepository {
 
     const offset = (page - 1) * limit;
     const baseQuery = `
-      SELECT id, email, first_name, last_name, role, is_active, last_login_at, organization_id, created_at, updated_at 
+      SELECT id, email, name, username, role, is_active, last_login_at, organization_id, created_at, updated_at 
       FROM users 
       WHERE organization_id = $1 
       ORDER BY ${orderBy} ${orderDirection} 
@@ -292,5 +302,64 @@ export class UserRepository {
       const v = c == 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
     });
+  }
+
+  /**
+   * Update user role
+   */
+  async updateUserRole(userId: string, newRole: UserRole): Promise<void> {
+    const query = `
+      UPDATE ${this.tableName}
+      SET role = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `;
+    
+    await db.query(query, [newRole, userId]);
+  }
+
+  /**
+   * Search users by name, email, username, or role
+   * Case-insensitive search across all fields
+   */
+  async searchUsers(searchQuery: string): Promise<User[]> {
+    const searchPattern = `%${searchQuery}%`;
+    
+    const query = `
+      SELECT 
+        id, 
+        name, 
+        email, 
+        username, 
+        role, 
+        education_level as "educationLevel",
+        organization_id as "organizationId",
+        created_at as "createdAt",
+        updated_at as "updatedAt",
+        password_hash as "passwordHash"
+      FROM ${this.tableName}
+      WHERE (
+        name ILIKE $1 
+        OR email ILIKE $1 
+        OR username ILIKE $1 
+        OR CAST(role AS TEXT) ILIKE $1
+      )
+      ORDER BY 
+        CASE 
+          WHEN name ILIKE $1 THEN 1
+          WHEN email ILIKE $1 THEN 2
+          WHEN username ILIKE $1 THEN 3
+          ELSE 4
+        END,
+        created_at DESC
+      LIMIT 100
+    `;
+    
+    console.log('🔍 Executing search query with pattern:', searchPattern);
+    
+    const result = await db.query(query, [searchPattern]);
+    
+    console.log('✅ Search query returned', result.rows.length, 'users');
+    
+    return result.rows;
   }
 }

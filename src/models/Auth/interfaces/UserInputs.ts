@@ -20,6 +20,10 @@ export interface CreateUserInput {
   isActive?: boolean;
   emailVerified?: boolean;
   organizationSetupComplete?: boolean;
+  // Guardian fields for ORG_WARD users
+  guardianName?: string;
+  guardianEmail?: string;
+  wardName?: string;
 }
 
 /**

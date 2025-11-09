@@ -4,6 +4,7 @@
  */
 
 import { EmailTemplates, GuardianCredentialsData, PasswordResetData } from '../utils/emailTemplates';
+const nodemailer = require('nodemailer');
 
 // Note: In production, configure with nodemailer or other email service
 // For now, this is a placeholder that logs emails
@@ -23,36 +24,52 @@ export class EmailService {
 
       console.log('📧 EmailService: Sending guardian credentials email', {
         to: data.guardianEmail,
-        subject: emailContent.subject
+        subject: emailContent.subject,
+        wardName: data.studentName
       });
 
       if (this.emailEnabled) {
-        // TODO: Implement actual email sending with nodemailer
-        // const transporter = nodemailer.createTransport({...});
-        // await transporter.sendMail({
-        //   from: process.env.EMAIL_FROM,
-        //   to: data.guardianEmail,
-        //   subject: emailContent.subject,
-        //   html: emailContent.html,
-        //   text: emailContent.text
-        // });
-        
-        console.log('✅ EmailService: Guardian credentials email sent successfully');
+        // Create nodemailer transporter
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: parseInt(process.env.SMTP_PORT || '587'),
+          secure: process.env.SMTP_PORT === '465',
+          auth: {
+            user: process.env.SMTP_USER || process.env.ZOHO_USER,
+            pass: process.env.SMTP_PASSWORD || process.env.ZOHO_APP_PASSWORD
+          },
+        });
+
+        const mailOptions = {
+          from: `"${data.organizationName}" <${process.env.SMTP_USER || process.env.ZOHO_USER}>`,
+          to: data.guardianEmail,
+          subject: emailContent.subject,
+          html: emailContent.html,
+          text: emailContent.text
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('✅ EmailService: Guardian credentials email sent successfully', info.messageId);
+        return true;
       } else {
         console.log('ℹ️  EmailService: Email disabled, logging content instead');
         console.log('---EMAIL CONTENT---');
         console.log('To:', data.guardianEmail);
+        console.log('Guardian:', data.guardianName);
+        console.log('Ward:', data.studentName);
         console.log('Subject:', emailContent.subject);
-        console.log('Body (Text):', emailContent.text);
+        console.log('Temp Code:', data.tempCode);
+        console.log('Temp Password:', data.tempPassword);
+        console.log('Expires:', data.expiryDate);
         console.log('---END EMAIL---');
+        return true;
       }
-
-      return true;
     } catch (error) {
       console.error('❌ EmailService: Failed to send guardian credentials email', error);
       return false;
     }
   }
+
 
   /**
    * Send password reset email
@@ -176,6 +193,7 @@ export class EmailService {
       return false;
     }
   }
+
 }
 
 export const emailService = new EmailService();

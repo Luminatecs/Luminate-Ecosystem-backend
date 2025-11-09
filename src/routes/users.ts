@@ -1,42 +1,87 @@
 import express from 'express';
 import { Request, Response } from 'express';
+import { UserService } from '../services/UserService';
+import { AuthMiddleware } from '../middleware/auth';
+import { UserRole } from '../models';
 
 const router = express.Router();
+const userService = new UserService();
+const authMiddleware = new AuthMiddleware();
+
+// All routes require authentication
+router.use(authMiddleware.authenticate);
 
 // GET /api/users
 router.get('/', async (req: Request, res: Response) => {
   try {
-    // TODO: Implement get all users logic
+    // Get all users from database with default pagination
+    const result = await userService.getUsers({
+      page: 1,
+      limit: 1000, // Get all users
+      sortBy: 'created_at',
+      sortOrder: 'DESC'
+    });
+
     res.status(200).json({
       success: true,
       data: {
-        users: [
-          {
-            id: '1',
-            email: 'user1@example.com',
-            firstName: 'John',
-            lastName: 'Doe',
-            role: 'user',
-            createdAt: new Date().toISOString()
-          },
-          {
-            id: '2',
-            email: 'user2@example.com',
-            firstName: 'Jane',
-            lastName: 'Smith',
-            role: 'admin',
-            createdAt: new Date().toISOString()
-          }
-        ],
-        total: 2,
+        users: result.data,
+        total: result.data.length,
         page: 1,
-        limit: 10
+        limit: result.data.length
       }
     });
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Error fetching users:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch users'
+      error: error.message || 'Failed to fetch users'
+    });
+  }
+});
+
+// GET /api/users/search
+router.get('/search', async (req: Request, res: Response) => {
+  try {
+    const query = req.query.q as string;
+    
+    if (!query || !query.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    console.log(`🔍 Searching users with query: "${query}"`);
+
+    const users = await userService.searchUsers(query.trim());
+
+    console.log(`✅ Found ${users.length} users matching query`);
+    
+    // Log first few results for debugging
+    if (users.length > 0) {
+      console.log('📋 Sample results:', users.slice(0, 3).map(u => ({ name: u.name, email: u.email })));
+    }
+
+    // Prevent caching of search results
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        users,
+        total: users.length
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Error searching users:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to search users'
     });
   }
 });
@@ -112,6 +157,56 @@ router.delete('/:id', async (req: Request, res: Response) => {
     res.status(400).json({
       success: false,
       error: 'Failed to delete user'
+    });
+  }
+});
+
+/**
+ * PATCH /api/users/:id/role
+ * Update user role (SUPER_ADMIN only)
+ * @access Private (SUPER_ADMIN only)
+ */
+router.patch('/:id/role', authMiddleware.requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    // Validate role is provided
+    if (!role) {
+      return res.status(400).json({
+        success: false,
+        message: 'Role is required'
+      });
+    }
+
+    // Validate role is a valid UserRole
+    const validRoles = Object.values(UserRole);
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid role. Must be one of: ${validRoles.join(', ')}`
+      });
+    }
+
+    console.log(`📝 Updating user ${id} role to ${role}`);
+
+    // Update the user's role
+    const updatedUser = await userService.updateUserRole(id, role);
+
+    console.log(`✅ Successfully updated user ${id} role to ${role}`);
+
+    res.status(200).json({
+      success: true,
+      message: `User role updated to ${role} successfully`,
+      data: {
+        user: updatedUser
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Error updating user role:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Failed to update user role'
     });
   }
 });

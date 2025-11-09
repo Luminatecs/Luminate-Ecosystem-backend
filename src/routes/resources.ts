@@ -186,4 +186,110 @@ router.get('/search', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+/**
+ * @route GET /api/resources/:id
+ * @desc Get a single resource by ID
+ * @access Public
+ */
+router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    console.log(`📋 Fetching resource with ID: ${id}`);
+    const resource = await resourcesService.getResourceById(id);
+
+    if (!resource) {
+      res.status(404).json({
+        success: false,
+        message: 'Resource not found'
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Resource retrieved successfully',
+      data: resource
+    });
+  } catch (error: any) {
+    console.error('❌ Error fetching resource:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve resource',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route PUT /api/resources/:id
+ * @desc Update a resource by ID
+ * @access Public (you might want to add authentication later)
+ */
+router.put('/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    // Validate resource_type if provided
+    if (updateData.resource_type && !['students', 'parents', 'counselors'].includes(updateData.resource_type)) {
+      res.status(400).json({
+        success: false,
+        message: 'resource_type must be one of: students, parents, counselors'
+      });
+      return;
+    }
+
+    console.log(`✏️ Updating resource with ID: ${id}`);
+    const updatedResource = await resourcesService.updateResource(id, updateData);
+
+    if (!updatedResource) {
+      res.status(404).json({
+        success: false,
+        message: 'Resource not found'
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Resource updated successfully',
+      data: updatedResource
+    });
+  } catch (error: any) {
+    console.error('❌ Error updating resource:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update resource',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route DELETE /api/resources/:id
+ * @desc Delete a resource by ID (soft delete)
+ * @access Public (you might want to add authentication later)
+ */
+router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    console.log(`🗑️ Deleting resource with ID: ${id}`);
+    await resourcesService.deleteResource(id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Resource deleted successfully'
+    });
+  } catch (error: any) {
+    console.error('❌ Error deleting resource:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete resource',
+      error: error.message
+    });
+  }
+});
+
 export default router;
