@@ -534,15 +534,21 @@ router.post('/create-wards-bulk', authenticate, async (req: Request, res: Respon
   try {
     const admin = req.user;
     
-    if (!admin || (admin.role !== UserRole.ORG_ADMIN && admin.role !== UserRole.SUPER_ADMIN)) {
+    if (!admin || (admin.role !== UserRole.ORG_ADMIN && admin.role !== UserRole.SUPER_ADMIN && admin.role !== UserRole.ACCESS_ADMIN)) {
       res.status(403).json({
         success: false,
-        error: 'Only organization administrators and super admins can create wards'
+        error: 'Only organization administrators, super admins, and access admins can create wards'
       });
       return;
     }
 
     const { wards, organizationId } = req.body;
+
+    console.log('📥 Bulk ward creation request:', {
+      wardsCount: wards?.length || 0,
+      organizationId,
+      sampleWard: wards?.[0]
+    });
 
     if (!wards || !Array.isArray(wards) || wards.length === 0) {
       res.status(400).json({
@@ -553,13 +559,13 @@ router.post('/create-wards-bulk', authenticate, async (req: Request, res: Respon
     }
 
     // Determine which organization to use
-    // SUPER_ADMIN can specify organizationId, ORG_ADMIN uses their own organization
+    // SUPER_ADMIN and ACCESS_ADMIN can specify organizationId, ORG_ADMIN uses their own organization
     let targetOrgId: string;
-    if (admin.role === UserRole.SUPER_ADMIN) {
+    if (admin.role === UserRole.SUPER_ADMIN || admin.role === UserRole.ACCESS_ADMIN) {
       if (!organizationId) {
         res.status(400).json({
           success: false,
-          error: 'Super admins must specify an organizationId'
+          error: 'Super admins and access admins must specify an organizationId'
         });
         return;
       }
@@ -588,6 +594,7 @@ router.post('/create-wards-bulk', authenticate, async (req: Request, res: Respon
     });
 
   } catch (error) {
+    console.error('❌ Bulk ward creation error:', error);
     res.status(400).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create wards'

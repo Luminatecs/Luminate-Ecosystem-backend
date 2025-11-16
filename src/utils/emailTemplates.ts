@@ -31,9 +31,8 @@ export class EmailTemplates {
     text: string;
   } {
     const expiryDateStr = data.expiryDate.toLocaleDateString('en-US', {
-      weekday: 'long',
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric'
     });
 
@@ -41,61 +40,35 @@ export class EmailTemplates {
       <!DOCTYPE html>
       <html>
       <head>
+        <meta charset="UTF-8">
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #4299e1 0%, #2c5282 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-          .content { background: #f8fafc; padding: 30px; border: 2px solid #e2e8f0; border-radius: 0 0 8px 8px; }
-          .credentials-box { background: white; border: 2px solid #4299e1; border-radius: 8px; padding: 20px; margin: 20px 0; }
-          .credential-item { margin: 15px 0; }
-          .credential-label { font-weight: 600; color: #2c5282; }
-          .credential-value { font-family: monospace; font-size: 16px; background: #f1f5f9; padding: 8px 12px; border-radius: 4px; display: inline-block; margin-top: 5px; }
-          .warning { background: #fff5f5; border: 2px solid #fc8181; color: #c53030; padding: 15px; border-radius: 8px; margin: 20px 0; }
-          .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 14px; }
+          body { font-family: Roboto, Arial, sans-serif; background: #f5f5f5; color: #212121; margin: 0; }
+          .container { max-width: 480px; margin: 32px auto; background: #fff; border-radius: 4px; box-shadow: 0 2px 8px rgba(25, 118, 210, 0.06); padding: 0 0 24px 0; }
+          .header { background: #1976d2; color: #fff; padding: 20px 24px; border-radius: 4px 4px 0 0; text-align: left; }
+          .header h2 { margin: 0; font-weight: 500; font-size: 1.3rem; letter-spacing: 0.5px; }
+          .content { padding: 24px; }
+          .credentials { background: #f5f5f5; border-radius: 4px; padding: 16px; margin: 16px 0; font-size: 1rem; }
+          .credentials strong { color: #1976d2; }
+          .footer { color: #757575; font-size: 13px; text-align: center; margin-top: 32px; }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <h1>Welcome to ${data.organizationName}</h1>
-            <p>Student Portal Access Credentials</p>
+            <h2>Luminate Career Guidance Portal</h2>
           </div>
           <div class="content">
-            <p>Dear ${data.guardianName},</p>
-            
-            <p>Your ward, <strong>${data.studentName}</strong>, has been enrolled at <strong>${data.organizationName}</strong>. Below are the temporary login credentials to access the student portal.</p>
-            
-            <div class="credentials-box">
-              <h3 style="margin-top: 0; color: #2c5282;">Login Credentials</h3>
-              
-              <div class="credential-item">
-                <div class="credential-label">Temporary Username:</div>
-                <div class="credential-value">${data.tempCode}</div>
-              </div>
-              
-              <div class="credential-item">
-                <div class="credential-label">Temporary Password:</div>
-                <div class="credential-value">${data.tempPassword}</div>
-              </div>
+            <p>Hello ${data.guardianName},</p>
+            <p>You have been granted access to the <strong>Luminate Career Guidance Portal</strong> for your ward, <strong>${data.studentName}</strong>, through <strong>${data.organizationName}</strong>.</p>
+            <div class="credentials">
+              <div><strong>Username:</strong> ${data.tempCode}</div>
+              <div><strong>Temporary Password:</strong> ${data.tempPassword}</div>
             </div>
-            
-            <div class="warning">
-              <strong>⚠️ Important:</strong> These credentials will expire on <strong>${expiryDateStr}</strong>. Upon your first login, you will be required to create a permanent username and password.
-            </div>
-            
-            <h3 style="color: #2c5282;">Next Steps:</h3>
-            <ol>
-              <li>Visit the student portal login page</li>
-              <li>Enter the temporary username and password provided above</li>
-              <li>Create your permanent credentials when prompted</li>
-              <li>Access the full student portal features</li>
-            </ol>
-            
-            <p>If you have any questions or need assistance, please contact <strong>${data.organizationName}</strong> administration.</p>
-            
+            <p style="margin-bottom: 8px;">These credentials expire on <strong>${expiryDateStr}</strong>. Please log in and set your own password.</p>
+            <p>If you need help, just reach out to <a href="mailto:support@luminate.com">hello@luminatecs.com</a>.</p>
             <div class="footer">
-              <p>This is an automated message from the Luminate Ecosystem.</p>
-              <p>© ${new Date().getFullYear()} Luminate ECS. All rights reserved.</p>
+              Luminate Ecosystem<br>
+              &copy; ${new Date().getFullYear()} Luminate ECS
             </div>
           </div>
         </div>
@@ -104,32 +77,25 @@ export class EmailTemplates {
     `;
 
     const text = `
-Welcome to ${data.organizationName}
+Luminate Career Guidance Portal
 
-Dear ${data.guardianName},
+Hello ${data.guardianName},
 
-Your ward, ${data.studentName}, has been enrolled at ${data.organizationName}. Below are the temporary login credentials to access the student portal.
+You have been granted access to the Luminate Career Guidance Portal for your ward, ${data.studentName}, through ${data.organizationName}.
 
-LOGIN CREDENTIALS:
-Temporary Username: ${data.tempCode}
+Username: ${data.tempCode}
 Temporary Password: ${data.tempPassword}
 
-IMPORTANT: These credentials will expire on ${expiryDateStr}. Upon your first login, you will be required to create a permanent username and password.
+These credentials expire on ${expiryDateStr}. Please log in and set your own password.
 
-NEXT STEPS:
-1. Visit the student portal login page
-2. Enter the temporary username and password provided above
-3. Create your permanent credentials when prompted
-4. Access the full student portal features
+If you need help, just reply to this email.
 
-If you have any questions or need assistance, please contact ${data.organizationName} administration.
-
-This is an automated message from the Luminate Ecosystem.
-© ${new Date().getFullYear()} Luminate ECS. All rights reserved.
+Luminate Ecosystem
+© ${new Date().getFullYear()} Luminate ECS
     `;
 
     return {
-      subject: `${data.organizationName} - Student Portal Access Credentials`,
+      subject: `Access to Luminate Career Guidance Portal`,
       html,
       text
     };

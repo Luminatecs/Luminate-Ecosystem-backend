@@ -504,6 +504,7 @@ export class UserService {
     tempCode: string;
     tempPassword: string;
     expiresAt: Date;
+    emailSent: boolean;
   }> {
     // Note: Guardian email uniqueness will be enforced by database after migration runs
     // For now, we'll let the database handle any duplicate issues
@@ -557,33 +558,30 @@ export class UserService {
     // Send email with temporary credentials TO GUARDIAN
     const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/temp-login/${tempCredentials.tempCode}`;
     
-    try {
-          // await emailService.sendGuardianCredentials({
-          //   guardianEmail: wardData.guardianEmail,
-          //   guardianName: wardData.guardianName,
-          //   studentName: wardData.wardName,
-          //   tempCode: tempCredentials.tempCode,
-          //   tempPassword: tempCredentials.tempPassword,
-          //   expiryDate: tempCredentials.expiresAt,
-          //   organizationName: organizationName
-          // });
-      console.log('temporaryCredentialService: Sent credentials email to guardian', {
-        guardianEmail: wardData.guardianEmail,
+    const emailSent = await emailService.sendGuardianCredentials({
+      guardianEmail: wardData.guardianEmail,
+      guardianName: wardData.guardianName,
+      studentName: wardData.wardName,
+      tempCode: tempCredentials.tempCode,
+      tempPassword: tempCredentials.tempPassword,
+      expiryDate: tempCredentials.expiresAt,
+      organizationName: organizationName
+    });
+
+    if (emailSent) {
+      console.log('✅ Credentials email sent successfully to:', wardData.guardianEmail);
+      console.log('📧 Email details:', {
+        to: wardData.guardianEmail,
         studentName: wardData.wardName,
         tempCode: tempCredentials.tempCode,
-        tempPassword: tempCredentials.tempPassword,
-        expiryDate: tempCredentials.expiresAt,
         organizationName: organizationName
       });
-      
-      console.log('✅ Credentials email sent to guardian:', wardData.guardianEmail);
-      console.log('🔗 Login URL:', loginUrl);
-    } catch (error) {
-      console.error('❌ Failed to send credentials email:', error);
-      // Don't throw error - ward is created, just email failed
+    } else {
+      console.error('❌ Failed to send credentials email to:', wardData.guardianEmail);
       console.log('⚠️  Ward created but email failed. Credentials:', {
         tempCode: tempCredentials.tempCode,
-        tempPassword: tempCredentials.tempPassword
+        tempPassword: tempCredentials.tempPassword,
+        guardianEmail: wardData.guardianEmail
       });
     }
 
@@ -596,7 +594,8 @@ export class UserService {
       educationLevel: wardData.educationLevel,
       tempCode: tempCredentials.tempCode,
       tempPassword: tempCredentials.tempPassword,
-      expiresAt: tempCredentials.expiresAt
+      expiresAt: tempCredentials.expiresAt,
+      emailSent // Include email send status in return
     };
   }
 
@@ -621,20 +620,95 @@ export class UserService {
     tempCode: string;
     tempPassword: string;
     expiresAt: Date;
+    emailSent: boolean;
   }>> {
     const createdWards = [];
+    const errors = [];
+    let emailsSent = 0;
+    let emailsFailed = 0;
 
-    for (const wardData of data.wards) {
+    console.log('🔄 Starting bulk ward creation:', {
+      totalWards: data.wards.length,
+      organizationId: data.organizationId
+    });
+
+    for (let i = 0; i < data.wards.length; i++) {
+      const wardData = data.wards[i];
+      
       try {
+        // Validate ward data before attempting to create
+        if (!wardData.guardianName || !wardData.guardianName.trim()) {
+          console.error('❌ Skipping ward - missing guardianName:', wardData);
+          errors.push(`Skipped ward - missing guardian name`);
+          continue;
+        }
+
+        if (!wardData.guardianEmail || !wardData.guardianEmail.trim()) {
+          console.error('❌ Skipping ward - missing guardianEmail:', wardData);
+          errors.push(`Skipped ward ${wardData.wardName || 'unknown'} - missing guardian email`);
+          continue;
+        }
+
+        if (!wardData.wardName || !wardData.wardName.trim()) {
+          console.error('❌ Skipping ward - missing wardName:', wardData);
+          errors.push(`Skipped ward - missing student name`);
+          continue;
+        }
+
+        console.log(`\n📝 Creating ward ${createdWards.length + 1}/${data.wards.length}:`, {
+          wardName: wardData.wardName,
+          guardianEmail: wardData.guardianEmail
+        });
+
+        // createWard handles email sending internally
         const ward = await this.createWard({
           ...wardData,
           organizationId: data.organizationId
         });
+
         createdWards.push(ward);
+        
+        // Track email status from the return value
+        if (ward.emailSent) {
+          emailsSent++;
+        } else {
+          emailsFailed++;
+        }
+        
+        console.log('✅ Ward created successfully:', {
+          wardName: ward.wardName,
+          tempCode: ward.tempCode,
+          guardianEmail: ward.guardianEmail,
+          emailSent: ward.emailSent
+        });
+
+        // Rate limiting: Add delay between emails to avoid Zoho spam detection
+        // Skip delay after last ward
+        if (i < data.wards.length - 1) {
+          const delayMs = 5000; // 5 seconds between each ward creation to avoid Zoho rate limits
+          console.log(`⏳ Waiting ${delayMs / 1000}s before next ward (rate limiting)...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+        
       } catch (error) {
         // Log error but continue with other wards
-        console.error(`Failed to create ward ${wardData.wardName}:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`❌ Failed to create ward ${wardData.wardName}:`, errorMessage);
+        errors.push(`Failed to create ${wardData.wardName}: ${errorMessage}`);
+        emailsFailed++;
       }
+    }
+
+    console.log('\n📊 Bulk ward creation complete:', {
+      totalAttempted: data.wards.length,
+      successful: createdWards.length,
+      failed: errors.length,
+      emailsSent: emailsSent,
+      emailsFailed: emailsFailed
+    });
+
+    if (errors.length > 0) {
+      console.log('⚠️  Errors during bulk creation:', errors);
     }
 
     return createdWards;

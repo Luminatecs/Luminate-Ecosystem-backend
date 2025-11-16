@@ -146,6 +146,13 @@ export class UserRepository {
       search
     } = options;
 
+    // Validate orderBy column to prevent SQL injection and ensure column exists
+    const validColumns = ['id', 'email', 'name', 'username', 'role', 'is_active', 'last_login_at', 'organization_id', 'created_at', 'updated_at'];
+    const safeOrderBy = validColumns.includes(orderBy) ? orderBy : 'created_at';
+    
+    // Validate orderDirection
+    const safeOrderDirection = (orderDirection === 'ASC' || orderDirection === 'DESC') ? orderDirection : 'DESC';
+
     const offset = (page - 1) * limit;
     let baseQuery = 'SELECT id, email, name, username, role, is_active, last_login_at, organization_id, created_at, updated_at FROM users';
     let countQuery = 'SELECT COUNT(*) as count FROM users';
@@ -161,8 +168,8 @@ export class UserRepository {
       paramIndex++;
     }
 
-    // Add ordering
-    baseQuery += ` ORDER BY ${orderBy} ${orderDirection}`;
+    // Add ordering with validated column name
+    baseQuery += ` ORDER BY ${safeOrderBy} ${safeOrderDirection}`;
     
     // Add pagination
     baseQuery += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;

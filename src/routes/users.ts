@@ -14,21 +14,29 @@ router.use(authMiddleware.authenticate);
 // GET /api/users
 router.get('/', async (req: Request, res: Response) => {
   try {
-    // Get all users from database with default pagination
+    // Get pagination parameters from query string
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const sortBy = (req.query.sortBy as string) || 'created_at';
+    const sortOrder = (req.query.sortOrder as 'ASC' | 'DESC') || 'DESC';
+
+    console.log(`📄 Fetching users - Page: ${page}, Limit: ${limit}, SortBy: ${sortBy}, SortOrder: ${sortOrder}`);
+
+    // Get users from database with pagination
     const result = await userService.getUsers({
-      page: 1,
-      limit: 1000, // Get all users
-      sortBy: 'created_at',
-      sortOrder: 'DESC'
+      page,
+      limit,
+      orderBy: sortBy,
+      orderDirection: sortOrder
     });
+
+    console.log(`✅ Fetched ${result.data.length} users (Total: ${result.pagination.total})`);
 
     res.status(200).json({
       success: true,
       data: {
         users: result.data,
-        total: result.data.length,
-        page: 1,
-        limit: result.data.length
+        pagination: result.pagination
       }
     });
   } catch (error: any) {
